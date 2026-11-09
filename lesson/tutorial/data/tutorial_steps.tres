@@ -1,0 +1,68 @@
+[gd_resource type="Resource" script_class="TutorialSteps" format=3]
+
+[ext_resource type="Script" path="res://lesson/tutorial/scripts/tutorial_step.gd" id="1_step"]
+[ext_resource type="Script" path="res://lesson/tutorial/scripts/tutorial_steps.gd" id="2_steps"]
+
+[sub_resource type="Resource" id="Step_1"]
+script = ExtResource("1_step")
+title = "1. 複製一隻範例生物"
+description = "從 example/creatures 複製一隻範例生物到 my_creature 資料夾，改一個自己的檔名。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_2"]
+script = ExtResource("1_step")
+title = "2. 改身體"
+description = "改身體（ChainBody）的節數、粗細、顏色等，至少跟範例有 2 項不一樣。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_3"]
+script = ExtResource("1_step")
+title = "3. 加一對腳"
+description = "幫生物加一對腳（IKLeg）；範例本來就有腳的話，至少改一個腳的屬性。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_4"]
+script = ExtResource("1_step")
+title = "4. 加觸手或尾巴"
+description = "幫生物加一條觸手或尾巴（Tentacle）；範例本來就有的話，至少改一個觸手的屬性。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_5"]
+script = ExtResource("1_step")
+title = "5. 做自己的池塘"
+description = "在 my_creature 資料夾做一個自己的池塘，玩家生物換成你的生物，再改至少一條遊戲規則。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_6"]
+script = ExtResource("1_step")
+title = "6. 接上標題、玩到結算"
+description = "標題畫面的池塘場景換成你的池塘，在教學關按「試玩」玩到贏或輸。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_7"]
+script = ExtResource("1_step")
+title = "額外：自己的天敵"
+description = "池塘的天敵也換成你在 my_creature 做的生物。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_8"]
+script = ExtResource("1_step")
+title = "額外：觸手抓食物"
+description = "讓你的生物有一條觸手會「抓最近的食物」。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_9"]
+script = ExtResource("1_step")
+title = "額外：寫一點程式"
+description = "幫你的生物掛一個腳本，接上 grew 訊號（長大時做點什麼）。"
+hint = "（T5 補上）"
+
+[sub_resource type="Resource" id="Step_10"]
+script = ExtResource("1_step")
+title = "額外：加一個掛件"
+description = "幫你的生物加一個掛件（Ornament），換一個形狀，或在底下放自己畫的圖。"
+hint = "（T5 補上）"
+
+[resource]
+script = ExtResource("2_steps")
+steps = Array[ExtResource("1_step")]([SubResource("Step_1"), SubResource("Step_2"), SubResource("Step_3"), SubResource("Step_4"), SubResource("Step_5"), SubResource("Step_6"), SubResource("Step_7"), SubResource("Step_8"), SubResource("Step_9"), SubResource("Step_10")])

@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="CardDeck" format=3]
+
+[ext_resource type="Script" path="res://lesson/card_draw/scripts/card_deck.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+bodies = "蛇
+蜈蚣
+章魚
+蜘蛛
+水母
+長了四隻腳的蛇（蜥蜴）
+龍（長身體＋四隻腳＋鬍鬚）
+毛毛蟲
+蝌蚪
+蠍子（尾巴往前彎）
+烏賊
+機械蛇
+拖著觸手的眼球
+長了一堆腳的魚
+外星觸手怪"
+habitats = "池塘
+岩漿
+下水道
+外太空
+深海
+糖果池
+墨水瓶裡
+結冰的湖
+電路板
+湯碗裡
+浴缸
+培養皿
+雲上面
+水族箱
+深夜的水溝"
+rules = "食物會逃跑
+沒有天敵，但 60 秒內要吃滿 15 個
+每長 5 節就多一隻天敵
+天敵超快，但很近才看得到你
+撐過 90 秒就贏
+被咬一口少一半
+只能用 WASD 控制
+天敵就是你自己的生物
+目標長度 50：巨大化挑戰
+天敵很多隻，但很慢
+★ 越長越慢
+★ 只能用觸手吃東西
+★ 撞到自己的身體會受傷（貪食蛇）
+★ 不同顏色的食物有不同效果
+★ 尾巴碰到天敵可以把它打跑"
