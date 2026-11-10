@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_creature"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_body"]
+
+[node name="TestFat" type="Node2D"]
+script = ExtResource("1_creature")
+
+[node name="Body" type="Node2D" parent="."]
+script = ExtResource("2_body")
+segment_count = 10
+spacing = 12.0
+max_bend = 0.7853982
+thickness = 36.0
+pattern = 3

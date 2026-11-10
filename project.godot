@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 SoundSettings="*res://game/sound_settings/scripts/sound_settings.gd"
+Debug="*res://game/creature_parts/scripts/debug.gd"
 
 [display]
 
