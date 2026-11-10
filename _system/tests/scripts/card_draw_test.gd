@@ -4,6 +4,7 @@ extends Node
 ## 2. 單格重抽：只換那一張，另外兩張不變，而且不會抽到同一張
 ## 3. 全部重抽：三張都換，而且都不會抽到同一張
 ## 4. 卡池只有 1 張、0 張、或全部重複時不會當掉
+## 5. 進階卡（開頭有 ★）：右上角顯示「進階」、卡面不顯示 ★；一般卡不顯示「進階」
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/card_draw_test.tscn
@@ -23,6 +24,7 @@ func _ready() -> void:
 	await _test_redraw_all()
 	_test_small_pools()
 	await _test_missing_deck()
+	await _test_advanced_cards()
 
 	if _failures == 0:
 		print("[抽卡測試] 全部 PASS")
@@ -145,3 +147,33 @@ func _expect(ok: bool, description: String) -> void:
 	print("  %s %s" % ["PASS" if ok else "FAIL", description])
 	if not ok:
 		_failures += 1
+
+
+func _test_advanced_cards() -> void:
+	print("--- 進階卡 ---")
+	_expect(CARD_DRAW_SCRIPT.is_advanced("★ 越長越慢") and not CARD_DRAW_SCRIPT.is_advanced("食物會逃跑"), "開頭有 ★ 的才是進階卡")
+	_expect(CARD_DRAW_SCRIPT.display_text("★ 越長越慢") == "越長越慢", "顯示時拿掉 ★ 和空白")
+	var deck: CardDeck = load("res://lesson/card_draw/data/card_deck.tres")
+	var advanced_count: int = 0
+	for card: String in CardDeck.split_cards(deck.rules):
+		if CARD_DRAW_SCRIPT.is_advanced(card):
+			advanced_count += 1
+	_expect(advanced_count == 5, "規則卡裡有 5 張進階卡")
+
+	var card_draw: Control = await _spawn(null)
+	var rule_label: Label = card_draw.get_node("%RuleText")
+	var badge: Label = card_draw.get_node("%RuleBadge")
+	var seen_advanced: bool = false
+	var seen_normal: bool = false
+	var wrong: int = 0
+	for i: int in REPEAT_COUNT:
+		(card_draw.get_node("%RuleCard") as Button).pressed.emit()
+		var advanced: bool = CARD_DRAW_SCRIPT.is_advanced(card_draw.get("_current")[2])
+		seen_advanced = seen_advanced or advanced
+		seen_normal = seen_normal or not advanced
+		if badge.visible != advanced or CARD_DRAW_SCRIPT.ADVANCED_MARK in rule_label.text:
+			wrong += 1
+	_expect(seen_advanced and seen_normal, "抽得到進階卡，也抽得到一般卡")
+	_expect(wrong == 0, "「進階」標籤只在進階卡出現，卡面都沒有 ★（不對 %d 次）" % wrong)
+	card_draw.queue_free()
+	await get_tree().process_frame
