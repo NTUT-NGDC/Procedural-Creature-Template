@@ -1,0 +1,78 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_i05ig"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_8k2ks"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle.gd" id="3_umafi"]
+
+[sub_resource type="Curve" id="Curve_urgy4"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_0mp3j"]
+colors = PackedColorArray(0.49803922, 0.78431374, 0.9098039, 1, 0.7137255, 0.8901961, 0.9607843, 1)
+
+[sub_resource type="Gradient" id="Gradient_w8jk3"]
+colors = PackedColorArray(0.6039216, 0.83137256, 0.9411765, 1, 0.8784314, 0.95686275, 1, 1)
+
+[sub_resource type="Gradient" id="Gradient_thfg6"]
+colors = PackedColorArray(0.6039216, 0.83137256, 0.9411765, 1, 0.8784314, 0.95686275, 1, 1)
+
+[sub_resource type="Gradient" id="Gradient_3emd3"]
+colors = PackedColorArray(0.6039216, 0.83137256, 0.9411765, 1, 0.8784314, 0.95686275, 1, 1)
+
+[node name="Jellyfish" type="Node2D" unique_id=109503863]
+script = ExtResource("1_i05ig")
+speed = 90.0
+turn_speed = 1.5707963267948966
+metadata/source_example = "jellyfish"
+
+[node name="Body" type="Node2D" parent="." unique_id=1507159568]
+script = ExtResource("2_8k2ks")
+segment_count = 2
+spacing = 4.0
+thickness = 26.0
+width_curve = SubResource("Curve_urgy4")
+body_gradient = SubResource("Gradient_0mp3j")
+outline_color = Color(0.9098039, 0.972549, 1, 1)
+pattern = 0
+
+[node name="Tentacles1" type="Node2D" parent="Body" unique_id=672235742]
+script = ExtResource("3_umafi")
+attach_segment = 1
+segment_count = 12
+length = 100.0
+base_width = 3.0
+tip_width = 1.0
+behavior = 1
+wave_amplitude = 8.0
+wave_speed = 2.0
+color_gradient = SubResource("Gradient_w8jk3")
+suckers = false
+
+[node name="Tentacles2" type="Node2D" parent="Body" unique_id=1279025601]
+script = ExtResource("3_umafi")
+attach_segment = 1
+reach_angle = 2.827433388230814
+segment_count = 12
+length = 100.0
+base_width = 3.0
+tip_width = 1.0
+behavior = 1
+wave_amplitude = 8.0
+wave_speed = 2.4
+color_gradient = SubResource("Gradient_thfg6")
+suckers = false
+
+[node name="Tentacles3" type="Node2D" parent="Body" unique_id=59242494]
+script = ExtResource("3_umafi")
+attach_segment = 1
+reach_angle = 3.036872898470133
+segment_count = 12
+length = 100.0
+base_width = 3.0
+tip_width = 1.0
+behavior = 1
+wave_amplitude = 8.0
+wave_speed = 2.8
+color_gradient = SubResource("Gradient_3emd3")
+suckers = false

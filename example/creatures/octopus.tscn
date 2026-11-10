@@ -1,0 +1,94 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_2gg36"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_jrlh3"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle.gd" id="3_pgvvx"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes.gd" id="4_ugwee"]
+
+[sub_resource type="Curve" id="Curve_dnmuv"]
+_data = [Vector2(0, 0.85), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.6), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_fs1sa"]
+colors = PackedColorArray(0.60784316, 0.37254903, 0.7529412, 1, 0.47843137, 0.27450982, 0.627451, 1)
+
+[sub_resource type="Gradient" id="Gradient_pnfof"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[sub_resource type="Gradient" id="Gradient_igix1"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[sub_resource type="Gradient" id="Gradient_pd7ei"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[sub_resource type="Gradient" id="Gradient_jk1es"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[node name="Octopus" type="Node2D" unique_id=1299622608]
+script = ExtResource("1_2gg36")
+speed = 160.0
+turn_speed = 3.141592653589793
+metadata/source_example = "octopus"
+
+[node name="Body" type="Node2D" parent="." unique_id=1697557150]
+script = ExtResource("2_jrlh3")
+segment_count = 3
+spacing = 10.0
+thickness = 26.0
+width_curve = SubResource("Curve_dnmuv")
+body_gradient = SubResource("Gradient_fs1sa")
+outline_color = Color(0.9019608, 0.78431374, 0.9607843, 1)
+pattern_color = Color(0.41568628, 0.20784314, 0.5647059, 1)
+
+[node name="Arms1" type="Node2D" parent="Body" unique_id=1107112570]
+script = ExtResource("3_pgvvx")
+attach_segment = 1
+reach_angle = 2.0943951023931953
+segment_count = 12
+length = 90.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_pnfof")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[node name="Arms2" type="Node2D" parent="Body" unique_id=664060647]
+script = ExtResource("3_pgvvx")
+attach_segment = 1
+reach_angle = 2.443460952792061
+segment_count = 12
+length = 100.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_igix1")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[node name="Arms3" type="Node2D" parent="Body" unique_id=1714450955]
+script = ExtResource("3_pgvvx")
+attach_segment = 1
+reach_angle = 2.792526803190927
+segment_count = 12
+length = 110.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_pd7ei")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[node name="Arms4" type="Node2D" parent="Body" unique_id=1318911389]
+script = ExtResource("3_pgvvx")
+attach_segment = 1
+reach_angle = 3.0543261909900767
+segment_count = 12
+length = 120.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_jk1es")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[node name="Eyes" type="Node2D" parent="Body" unique_id=777987955]
+script = ExtResource("4_ugwee")
+size = 0.25
+spread = 0.5

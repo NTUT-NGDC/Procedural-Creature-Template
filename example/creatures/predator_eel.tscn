@@ -1,0 +1,39 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_t3p7b"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_yusld"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes.gd" id="3_32wxl"]
+
+[sub_resource type="Curve" id="Curve_2wgsj"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.2, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_1ulqx"]
+colors = PackedColorArray(0.2901961, 0.1254902, 0.2509804, 1, 0.47843137, 0.18039216, 0.3529412, 1)
+
+[node name="PredatorEel" type="Node2D" unique_id=1181629940]
+script = ExtResource("1_t3p7b")
+control_mode = 3
+speed = 180.0
+turn_speed = 2.6179938779914944
+detect_range = 300.0
+head_radius = 18.0
+metadata/source_example = "predator_eel"
+
+[node name="Body" type="Node2D" parent="." unique_id=764373864]
+script = ExtResource("2_yusld")
+segment_count = 30
+max_bend = 0.4363323129985824
+thickness = 22.0
+width_curve = SubResource("Curve_2wgsj")
+swim_amplitude = 8.0
+body_gradient = SubResource("Gradient_1ulqx")
+outline_color = Color(1, 0.56078434, 0.6901961, 1)
+pattern = 2
+pattern_color = Color(0.16470589, 0.05882353, 0.14117648, 1)
+
+[node name="Eyes" type="Node2D" parent="Body" unique_id=228318306]
+script = ExtResource("3_32wxl")
+size = 0.25
+white_color = Color(1, 0.8156863, 0.8156863, 1)
+pupil_color = Color(0.7529412, 0, 0.16470589, 1)

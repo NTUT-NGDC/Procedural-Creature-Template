@@ -1,0 +1,45 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_igvnl"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_lxf3t"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament.gd" id="3_pyikf"]
+[ext_resource type="Texture2D" path="res://example/creatures/doodle_head.png" id="4_flj0p"]
+
+[sub_resource type="Curve" id="Curve_vt0ko"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.2, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_3m1qj"]
+offsets = PackedFloat32Array(0)
+colors = PackedColorArray(0.99215686, 0.99215686, 0.972549, 1)
+
+[sub_resource type="Gradient" id="Gradient_3ncly"]
+colors = PackedColorArray(0.18431373, 0.43137255, 0.27058825, 1, 0.65882355, 0.8627451, 0.7058824, 1)
+
+[node name="Doodle" type="Node2D" unique_id=58903146]
+script = ExtResource("1_igvnl")
+metadata/source_example = "doodle"
+
+[node name="Body" type="Node2D" parent="." unique_id=1990825410]
+script = ExtResource("2_lxf3t")
+segment_count = 20
+spacing = 12.0
+thickness = 13.0
+width_curve = SubResource("Curve_vt0ko")
+swim_amplitude = 5.0
+body_gradient = SubResource("Gradient_3m1qj")
+outline_color = Color(0.13333334, 0.13333334, 0.13333334, 1)
+outline_width = 3.0
+pattern = 2
+pattern_color = Color(0.13333334, 0.13333334, 0.13333334, 1)
+
+[node name="Head" type="Node2D" parent="Body" unique_id=1638962685]
+script = ExtResource("3_pyikf")
+offset = Vector2(4, 0)
+shape = 0
+color_gradient = SubResource("Gradient_3ncly")
+
+[node name="DoodleHead" type="Sprite2D" parent="Body/Head" unique_id=2107927675]
+rotation = 1.5707964
+scale = Vector2(0.32, 0.32)
+texture = ExtResource("4_flj0p")
