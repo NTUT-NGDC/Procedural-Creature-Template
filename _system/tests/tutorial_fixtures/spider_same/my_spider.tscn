@@ -1,0 +1,79 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_puad5"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_o4edq"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ik_leg.gd" id="3_ibm56"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes.gd" id="4_x3rgk"]
+
+[sub_resource type="Curve" id="Curve_s5221"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.45, 0.6), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_j6gwx"]
+colors = PackedColorArray(0.23137255, 0.2, 0.27450982, 1, 0.3529412, 0.2901961, 0.43137255, 1)
+
+[node name="Spider" type="Node2D" unique_id=1145185530]
+script = ExtResource("1_puad5")
+speed = 200.0
+turn_speed = 5.235987755982989
+metadata/source_example = "spider"
+
+[node name="Body" type="Node2D" parent="." unique_id=244689531]
+script = ExtResource("2_o4edq")
+segment_count = 3
+spacing = 16.0
+thickness = 15.0
+width_curve = SubResource("Curve_s5221")
+body_gradient = SubResource("Gradient_j6gwx")
+outline_color = Color(0.7882353, 0.72156864, 0.8784314, 1)
+pattern_color = Color(0.5568628, 0.47843137, 0.65882355, 1)
+
+[node name="Legs1" type="Node2D" parent="Body" unique_id=2084727462]
+script = ExtResource("3_ibm56")
+attach_segment = 0
+thigh_length = 34.0
+shin_length = 42.0
+rest_angle = 0.5235987755982988
+rest_distance = 0.9
+step_distance = 16.0
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[node name="Legs2" type="Node2D" parent="Body" unique_id=1634008229]
+script = ExtResource("3_ibm56")
+thigh_length = 34.0
+shin_length = 42.0
+rest_distance = 0.9
+step_distance = 16.0
+group = 1
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[node name="Legs3" type="Node2D" parent="Body" unique_id=2096241017]
+script = ExtResource("3_ibm56")
+thigh_length = 34.0
+shin_length = 42.0
+rest_angle = 1.9198621771937625
+rest_distance = 0.9
+step_distance = 16.0
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[node name="Legs4" type="Node2D" parent="Body" unique_id=1243930533]
+script = ExtResource("3_ibm56")
+attach_segment = 2
+thigh_length = 34.0
+shin_length = 42.0
+rest_angle = 2.6179938779914944
+rest_distance = 0.9
+step_distance = 16.0
+group = 1
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[node name="Eyes" type="Node2D" parent="Body" unique_id=289845241]
+script = ExtResource("4_x3rgk")
+count = 6
+size = 0.18
+spread = 0.7
+pupil_color = Color(0.47843137, 0.05882353, 0.12156863, 1)

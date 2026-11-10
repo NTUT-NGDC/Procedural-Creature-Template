@@ -12,6 +12,8 @@ extends Node2D
 
 ## 遊戲結束時發出，won 是贏了沒
 signal game_over(won: bool)
+## 按了「回標題」，但池塘是被別的場景包著在玩（例如教學關的試玩）時發出，由外面決定要做什麼
+signal exit_requested()
 
 const FOOD_SCRIPT: GDScript = preload("res://example/pond/scripts/food.gd")
 ## 碰撞層（專案設定裡的名字：1 玩家、2 天敵、3 食物）
@@ -99,6 +101,7 @@ func _ready() -> void:
 	_play_music()
 	_result.connect("restart_pressed", start_game)
 	_result.connect("title_pressed", _on_title_pressed)
+	_pause_menu.connect("title_requested", _on_title_pressed)
 	start_game()
 
 
@@ -345,6 +348,10 @@ func _on_player_died() -> void:
 
 func _on_title_pressed() -> void:
 	get_tree().paused = false
+	# 池塘被別的場景包著在玩（不是目前的場景）時，不自己換場景，交給外面處理
+	if get_tree().current_scene != self:
+		exit_requested.emit()
+		return
 	get_tree().change_scene_to_file(title_scene)
 
 

@@ -75,9 +75,10 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="PlayLabel" type="Label" parent="MainPanel/Margin/VBox/PlayBar" unique_id=864484420]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "試玩自己的池塘："
+text = "試玩："
 
 [node name="PlayButton" type="Button" parent="MainPanel/Margin/VBox/PlayBar" unique_id=1757007918]
 unique_name_in_owner = true

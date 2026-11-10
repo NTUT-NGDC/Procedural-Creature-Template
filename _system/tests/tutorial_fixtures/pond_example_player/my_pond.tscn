@@ -1,0 +1,144 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://example/pond/scripts/pond.gd" id="1_sub8b"]
+[ext_resource type="PackedScene" path="res://example/creatures/snake.tscn" id="2_xe25b"]
+[ext_resource type="PackedScene" path="res://example/creatures/predator_eel.tscn" id="3_mnwyn"]
+[ext_resource type="Script" path="res://example/pond/scripts/water.gd" id="4_4u6eb"]
+[ext_resource type="Script" path="res://example/pond/scripts/hud.gd" id="5_7iigj"]
+[ext_resource type="Script" path="res://example/pond/scripts/result.gd" id="6_bcwl4"]
+[ext_resource type="PackedScene" path="res://game/pause_menu/pause_menu.tscn" id="7_4oroj"]
+[ext_resource type="Script" path="res://game/pause_menu/scripts/pause_menu.gd" id="8_7jj1f"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 44.0
+content_margin_top = 33.0
+content_margin_right = 44.0
+content_margin_bottom = 33.0
+bg_color = Color(0.13, 0.13, 0.17, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="Pond" type="Node2D" unique_id=1042615791]
+script = ExtResource("1_sub8b")
+player_creature = ExtResource("2_xe25b")
+food_count = 10
+predator_creature = ExtResource("3_mnwyn")
+
+[node name="Water" type="Node2D" parent="." unique_id=1925813781]
+unique_name_in_owner = true
+script = ExtResource("4_4u6eb")
+
+[node name="Foods" type="Node2D" parent="." unique_id=2145461996]
+unique_name_in_owner = true
+
+[node name="Creatures" type="Node2D" parent="." unique_id=28415985]
+unique_name_in_owner = true
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=584792178]
+unique_name_in_owner = true
+layer = 10
+script = ExtResource("5_7iigj")
+
+[node name="Margin" type="MarginContainer" parent="HUD" unique_id=682211218]
+offset_right = 600.0
+offset_bottom = 140.0
+mouse_filter = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 22
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Margin" unique_id=555502323]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="NameLabel" type="Label" parent="HUD/Margin/VBox" unique_id=229616117]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 33
+text = "池塘"
+
+[node name="StatusLabel" type="Label" parent="HUD/Margin/VBox" unique_id=1050854199]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "長度 0 / 20"
+
+[node name="MessageLabel" type="Label" parent="HUD" unique_id=1493757959]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(1, 0.75, 0.4, 1)
+text = "（提示文字）"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Result" type="CanvasLayer" parent="." unique_id=194909833]
+unique_name_in_owner = true
+layer = 20
+script = ExtResource("6_bcwl4")
+
+[node name="Dim" type="ColorRect" parent="Result" unique_id=2127014084]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Center" type="CenterContainer" parent="Result" unique_id=915741264]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Result/Center" unique_id=327144892]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="Result/Center/Panel" unique_id=716120669]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="ResultTitle" type="Label" parent="Result/Center/Panel/VBox" unique_id=2068500236]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 44
+text = "你贏了！"
+horizontal_alignment = 1
+
+[node name="ResultDetail" type="Label" parent="Result/Center/Panel/VBox" unique_id=1033441205]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "長度 20　吃了 14 個　60 秒"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="Result/Center/Panel/VBox" unique_id=719497047]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(264, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
+text = "再來一場"
+
+[node name="TitleButton" type="Button" parent="Result/Center/Panel/VBox" unique_id=9289639]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(264, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
+text = "回標題"
+
+[node name="PauseMenu" type="CanvasLayer" parent="." unique_id=728284877 instance=ExtResource("7_4oroj")]
+unique_name_in_owner = true
+layer = 30
+script = ExtResource("8_7jj1f")

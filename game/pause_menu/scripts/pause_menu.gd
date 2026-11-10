@@ -7,6 +7,9 @@ extends CanvasLayer
 ## 想改文字、字的大小、顏色：直接點場景裡的節點，在右邊的檢查器改，程式不會蓋掉。
 ##   ・右上角的按鈕：MenuButton　・選單裡的標題、按鈕、「音樂」「音效」：MenuPanel 底下的節點
 
+## 按了「回到標題」，但遊戲是被別的場景包著在玩（例如教學關的試玩）時發出，由外面決定要做什麼
+signal title_requested()
+
 ## 按「回到標題」後要換到的標題畫面
 @export_file("*.tscn") var title_scene: String = "res://game/title_screen/title_screen.tscn"
 
@@ -51,6 +54,11 @@ func close_menu() -> void:
 func _on_title_pressed() -> void:
 	# 換場景前先解除暫停，不然標題畫面也會是暫停的
 	get_tree().paused = false
+	close_menu()
+	# 遊戲是被別的場景包著在玩（不是目前的場景）時，不自己換場景，交給外面處理
+	if owner != null and owner != get_tree().current_scene:
+		title_requested.emit()
+		return
 	get_tree().change_scene_to_file(title_scene)
 
 
