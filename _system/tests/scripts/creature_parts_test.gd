@@ -1,7 +1,7 @@
 extends Node
 ## 生物零件的自動測試：
 ## 1. 身體節數 2 和 80 不會出錯；「第幾節」超出範圍時當最後一節
-## 2. grow／shrink 後節數正確、最少 2 節；短到剩 2 節時發出 died；新加的節接在尾巴後面
+## 2. grow／shrink 後節數正確、身體最少 2 節；長度 = 10 ＋ 等級，短到 2 時發出 died；新加的節接在尾巴後面
 ## 3. 頭快速繞圈：間距不變、相鄰兩節的彎曲不超過上限
 ## 4. reset_pose()：瞬間移動後身體重新拉直在頭後面
 ## 5. 沒有身體的生物：長度用等級換算，也能移動
@@ -75,6 +75,7 @@ func _test_grow_shrink() -> void:
 	creature.grow(1)
 	creature.grow(2)
 	_expect(body.joint_count() == 16, "每次長 2 節，長大 3 次：10 → 16（實際 %d）" % body.joint_count())
+	_expect(creature.get_length() == Creature.START_LENGTH + 3, "遊戲長度跟身體節數無關：10 ＋ 等級 3 ＝ %d" % creature.get_length())
 	_expect(grew_levels == [1, 3], "grew 訊號帶著等級 1、3")
 	var tail_gap: float = body.get_joint(-1).distance_to(body.get_joint(-2))
 	_expect(is_equal_approx(tail_gap, body.spacing), "新的節接在尾巴後面，間距正確（%.2f）" % tail_gap)
@@ -88,9 +89,9 @@ func _test_grow_shrink() -> void:
 	_expect(body.joint_count() == 12 and hurt_count[0] == 1 and died_count[0] == 0, "被咬 2：16 → 12，發出 hurt，沒有 died")
 	creature.shrink(100)
 	_expect(body.joint_count() == 2, "被咬很多下：最少留 2 節（實際 %d）" % body.joint_count())
-	_expect(died_count[0] == 1, "剩 2 節時發出 died")
+	_expect(died_count[0] == 1, "長度短到 2 時發出 died")
 	await _simulate(creature, 10, 0.0)
-	_expect(true, "剩 2 節繼續動不會出錯")
+	_expect(true, "身體剩 2 節繼續動不會出錯")
 	await _free(creature)
 
 
@@ -133,9 +134,9 @@ func _test_no_body() -> void:
 	creature.position = Vector2(300, 300)
 	add_child(creature)
 	await get_tree().process_frame
-	_expect(creature.get_length() == Creature.LENGTH_WITHOUT_BODY, "長度 = %d" % Creature.LENGTH_WITHOUT_BODY)
+	_expect(creature.get_length() == Creature.START_LENGTH, "長度 = %d" % Creature.START_LENGTH)
 	creature.grow(3)
-	_expect(creature.get_length() == Creature.LENGTH_WITHOUT_BODY + 3, "長大 3 次，長度 +3")
+	_expect(creature.get_length() == Creature.START_LENGTH + 3, "長大 3 次，長度 +3")
 	creature.control_mode = Creature.Mode.WANDER
 	var start: Vector2 = creature.global_position
 	for i: int in 30:

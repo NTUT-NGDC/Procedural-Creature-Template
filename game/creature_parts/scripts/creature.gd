@@ -11,15 +11,15 @@ extends Node2D
 signal grew(level: int)
 ## 被咬（變短）時發出
 signal hurt()
-## 短到不能再短時發出（剩 2 節）
+## 長度短到剩 2 時發出（被吃掉了）
 signal died()
 ## 吃掉一個食物時發出（用頭吃、用觸手抓都算），在 grew 之前
 signal ate(food: Node)
 
-## 長度最少幾節，到這裡就算死掉
+## 長度最少是多少，到這裡就算死掉
 const MIN_LENGTH: int = 2
-## 沒有身體（ChainBody）的生物，用「這個數字＋等級」當長度
-const LENGTH_WITHOUT_BODY: int = 10
+## 每隻生物一開始的長度（遊戲裡的長度＝這個數字＋等級，見 get_length()）
+const START_LENGTH: int = 10
 
 ## 控制方式的編號，跟下面「控制方式」選單的順序一樣
 enum Mode { MOUSE, WASD, WANDER, CHASE, FLEE }
@@ -200,7 +200,7 @@ func can_step(group: int) -> bool:
 	return true
 
 
-## 變短：等級 -amount，通知所有零件，發出 hurt 訊號；短到剩 2 節時再發出 died
+## 變短：等級 -amount，通知所有零件，發出 hurt 訊號；長度短到剩 2 時再發出 died
 func shrink(amount: int = 1) -> void:
 	level -= amount
 	_notify_parts()
@@ -209,12 +209,10 @@ func shrink(amount: int = 1) -> void:
 		died.emit()
 
 
-## 現在有幾節。有身體就是身體的節數，沒有身體就用等級換算
+## 遊戲裡的「長度」：每隻生物都從 START_LENGTH 開始，吃一個 +1、被咬 -N。
+## 跟身體有幾節無關，身體短的生物（章魚、水母）才不會一下就輸
 func get_length() -> int:
-	var body: ChainBody = get_body()
-	if body != null:
-		return body.joint_count()
-	return maxi(LENGTH_WITHOUT_BODY + level, MIN_LENGTH)
+	return maxi(START_LENGTH + level, MIN_LENGTH)
 
 
 ## 身體（第一個 ChainBody 子節點），沒有就是 null

@@ -1,0 +1,140 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://example/pond/scripts/pond.gd" id="1_pond"]
+[ext_resource type="Script" path="res://example/pond/scripts/water.gd" id="2_water"]
+[ext_resource type="Script" path="res://example/pond/scripts/hud.gd" id="3_hud"]
+[ext_resource type="Script" path="res://example/pond/scripts/result.gd" id="4_result"]
+[ext_resource type="PackedScene" path="res://game/pause_menu/pause_menu.tscn" id="5_pause"]
+[ext_resource type="PackedScene" path="res://example/creatures/snake.tscn" id="6_snake"]
+[ext_resource type="PackedScene" path="res://example/creatures/predator_eel.tscn" id="7_eel"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 44.0
+content_margin_top = 33.0
+content_margin_right = 44.0
+content_margin_bottom = 33.0
+bg_color = Color(0.13, 0.13, 0.17, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="Pond" type="Node2D"]
+script = ExtResource("1_pond")
+player_creature = ExtResource("6_snake")
+predator_creature = ExtResource("7_eel")
+
+[node name="Water" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_water")
+
+[node name="Foods" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Creatures" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+layer = 10
+script = ExtResource("3_hud")
+
+[node name="Margin" type="MarginContainer" parent="HUD"]
+offset_right = 600.0
+offset_bottom = 140.0
+mouse_filter = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 22
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="NameLabel" type="Label" parent="HUD/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 33
+text = "池塘"
+
+[node name="StatusLabel" type="Label" parent="HUD/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "長度 0 / 20"
+
+[node name="MessageLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.75, 0.4, 1)
+theme_override_font_sizes/font_size = 22
+text = "（提示文字）"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Result" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+layer = 20
+script = ExtResource("4_result")
+
+[node name="Dim" type="ColorRect" parent="Result"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Center" type="CenterContainer" parent="Result"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Result/Center"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="Result/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="ResultTitle" type="Label" parent="Result/Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 44
+text = "你贏了！"
+horizontal_alignment = 1
+
+[node name="ResultDetail" type="Label" parent="Result/Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "長度 20　吃了 14 個　60 秒"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="Result/Center/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(264, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
+text = "再來一場"
+
+[node name="TitleButton" type="Button" parent="Result/Center/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(264, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
+text = "回標題"
+
+[node name="PauseMenu" parent="." instance=ExtResource("5_pause")]
+unique_name_in_owner = true
