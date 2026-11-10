@@ -4,8 +4,9 @@ extends Node
 ## 2. 設定面板可以打開、關閉；電腦版看得到「離開遊戲」；標題音樂會自動播放、播完重播
 ## 3. 音量：調整後會存檔，重新讀取後音量和滑桿位置都對；拉到 0 是靜音
 ## 4. 暫停選單：打開時遊戲暫停、選單照常運作；繼續後解除暫停；按 Esc 也能打開；回到標題時已解除暫停
+## 5. 背景：池塘的玩家生物用「漫遊」在按鈕後面游；池塘場景有問題時不顯示、不會當掉
+## 6. 完整流程跑兩輪：標題 → 開始 → 池塘 → 贏 → 再來一場 → 輸 → 回標題
 ##
-## （「標題 → 池塘 → 結算 → 回標題」的完整流程等 T3 做好池塘再加）
 ##
 ## 測試會暫時改掉 user://sound_settings.cfg，結束時還原。
 ##
@@ -15,6 +16,7 @@ extends Node
 const TITLE_SCENE: PackedScene = preload("res://game/title_screen/title_screen.tscn")
 const PAUSE_MENU_SCENE: PackedScene = preload("res://game/pause_menu/pause_menu.tscn")
 const TITLE_PATH: String = "res://game/title_screen/title_screen.tscn"
+const POND_PATH: String = "res://example/pond/pond.tscn"
 const TIMEOUT_SECONDS: float = 10.0
 
 var _failures: int = 0
@@ -28,6 +30,8 @@ func _ready() -> void:
 	await _test_title_music()
 	await _test_sound_settings()
 	await _test_pause_menu()
+	await _test_background_creature()
+	await _test_full_flow()
 
 	if _failures == 0:
 		print("[標題畫面測試] 全部 PASS")
@@ -206,3 +210,64 @@ class _FrameCounter extends Node:
 
 	func _process(_delta: float) -> void:
 		frames += 1
+
+
+func _test_background_creature() -> void:
+	print("--- 背景的生物 ---")
+	get_tree().paused = false
+	var title: Control = TITLE_SCENE.instantiate()
+	add_child(title)
+	await get_tree().process_frame
+	var creature: Creature = title.get_node_or_null("BackgroundCreature") as Creature
+	_expect(creature != null, "背景有一隻生物（池塘的玩家生物）")
+	_expect(creature != null and creature.get_meta("source_example", "") == "snake", "是範例池塘設定的蛇")
+	_expect(creature != null and creature.control_mode == Creature.Mode.WANDER and not creature.is_in_group("player"), "用「漫遊」游，不算玩家")
+	_expect(creature != null and creature.get_index() < (title.get_node("Margin") as Control).get_index(), "在按鈕的下面")
+	var start: Vector2 = creature.global_position if creature != null else Vector2.ZERO
+	for i: int in 30:
+		await get_tree().process_frame
+	_expect(creature != null and creature.global_position != start, "會游來游去")
+	title.queue_free()
+	await get_tree().process_frame
+
+	for path: String in ["", "res://my_creature/不存在的場景.tscn", "res://lesson/card_draw/data/card_deck.tres"]:
+		title = TITLE_SCENE.instantiate()
+		title.set("pond_scene", path)
+		add_child(title)
+		await get_tree().process_frame
+		_expect(title.get_node_or_null("BackgroundCreature") == null, "池塘場景是「%s」：不顯示背景生物、不會當掉" % path)
+		title.queue_free()
+		await get_tree().process_frame
+
+
+## 用真正的換場景流程跑：把標題畫面設成目前的場景，這個測試節點留在旁邊不會被換掉
+func _test_full_flow() -> void:
+	print("--- 標題 → 池塘 → 結算 → 回標題，跑兩輪 ---")
+	get_tree().paused = false
+	var title: Control = TITLE_SCENE.instantiate()
+	get_tree().root.add_child.call_deferred(title)
+	await get_tree().process_frame
+	get_tree().current_scene = title
+
+	for round_number: int in [1, 2]:
+		(get_tree().current_scene.get_node("%StartButton") as Button).pressed.emit()
+		_expect(await _wait_until(func() -> bool: return _current_scene_path() == POND_PATH), "第 %d 輪：按開始換到池塘" % round_number)
+		var pond: Pond = get_tree().current_scene as Pond
+		await get_tree().process_frame
+		var won: Array[bool] = []
+		pond.game_over.connect(func(result: bool) -> void: won.append(result))
+		# 贏一場：一直吃到長度 20
+		for i: int in 10:
+			var player: Creature = pond.get("_player")
+			player.eat(pond.get_node("%Foods").get_child(0))
+		await get_tree().process_frame
+		_expect(won == [true], "第 %d 輪：長到 20 贏了" % round_number)
+		# 再來一場，這次被咬到輸
+		(pond.get_node("%RestartButton") as Button).pressed.emit()
+		await get_tree().process_frame
+		(pond.get("_player") as Creature).shrink(8)
+		await get_tree().process_frame
+		_expect(won == [true, false], "第 %d 輪：再來一場，長度剩 2 輸了" % round_number)
+		(pond.get_node("%TitleButton") as Button).pressed.emit()
+		_expect(await _wait_until(func() -> bool: return _current_scene_path() == TITLE_PATH), "第 %d 輪：按回標題回到標題畫面" % round_number)
+		_expect(not get_tree().paused, "第 %d 輪：回到標題時已解除暫停" % round_number)

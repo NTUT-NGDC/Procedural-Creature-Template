@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_kttvh"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_m5g1i"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes.gd" id="3_rwva1"]
+[ext_resource type="Script" path="res://example/grow_challenge/grow_challenge.gd" id="4_nk25i"]
+
+[sub_resource type="Curve" id="Curve_yxylo"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.2, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_xm5xs"]
+offsets = PackedFloat32Array(0)
+colors = PackedColorArray(0.30980393, 0.6156863, 0.4117647, 1)
+
+[node name="GrowChallenge" type="Node2D" unique_id=2047434550]
+script = ExtResource("1_kttvh")
+
+[node name="Body" type="Node2D" parent="." unique_id=1580278048]
+script = ExtResource("2_m5g1i")
+segment_count = 12
+spacing = 12.0
+thickness = 14.0
+width_curve = SubResource("Curve_yxylo")
+swim_amplitude = 6.0
+body_gradient = SubResource("Gradient_xm5xs")
+
+[node name="Eyes" type="Node2D" parent="Body" unique_id=1190748556]
+script = ExtResource("3_rwva1")
+
+[node name="GrowEffect" type="Node" parent="." unique_id=537021376]
+script = ExtResource("4_nk25i")
+
+[connection signal="grew" from="." to="GrowEffect" method="_on_creature_grew"]
