@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_creature"]
 [ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_body"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes.gd" id="5_eyes"]
 [ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle.gd" id="3_tentacle"]
 [ext_resource type="Script" path="res://game/creature_parts/scripts/ik_leg.gd" id="4_leg"]
 
@@ -37,3 +38,7 @@ script = ExtResource("3_tentacle")
 attach_segment = 1
 reach_angle = 2.9670596
 length = 120.0
+
+[node name="Eyes" type="Node2D" parent="Body"]
+script = ExtResource("5_eyes")
+size = 0.25

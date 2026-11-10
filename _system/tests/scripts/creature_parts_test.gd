@@ -9,6 +9,8 @@ extends Node
 ## 7. 蜘蛛的腳：直走、急轉彎、原地轉圈時膝蓋不會翻面、同一邊的腳不會交叉；停下後 1 秒內腳都站穩
 ## 8. 觸手：FABRIK 伸得到目標、根部不動；「抓最近的食物」會吃掉食物；掛在超出範圍的節不會出錯
 ## 9. reset_pose()：瞬間移動後腳和觸手都在新位置；只有觸手、沒有身體的生物也能動
+## 10. 掛件：三種動法、十種形狀都不會出錯；「兩邊」會鏡像底下的子節點；彈簧會晃過頭再停下
+## 11. 眼睛：1～6 顆、四種「看哪裡」都不會出錯；Gradient 只有一個顏色時正常
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/creature_parts_test.tscn
@@ -17,6 +19,8 @@ const CREATURE_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/cre
 const BODY_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/chain_body.gd")
 const LEG_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/ik_leg.gd")
 const TENTACLE_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/tentacle.gd")
+const EYES_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/eyes.gd")
+const ORNAMENT_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/ornament.gd")
 const FOOD_SCRIPT: GDScript = preload("res://_system/sandbox/scripts/sandbox_food.gd")
 const FRAME: float = 1.0 / 60.0
 
@@ -34,6 +38,8 @@ func _ready() -> void:
 	await _test_tentacle()
 	await _test_parts_reset_pose()
 	await _test_tentacle_only()
+	await _test_ornament()
+	await _test_eyes_and_gradient()
 
 	if _failures == 0:
 		print("[生物零件測試] 全部 PASS")
@@ -408,4 +414,111 @@ func _test_tentacle_only() -> void:
 	_expect(creature.global_position != start, "會移動")
 	_expect(tentacle._chains.size() == 2, "「兩邊」有兩條觸手")
 	_expect(tentacle._chains[0][0].distance_to(creature.global_position) <= creature.head_radius + 0.01, "觸手根部跟著頭")
+	await _free(creature)
+
+
+# ---------------------------------------------------------------- 第三段：眼睛、掛件
+
+
+func _test_ornament() -> void:
+	print("--- 掛件 ---")
+	var creature: Creature = await _spawn({"segment_count": 10})
+	var body: ChainBody = creature.get_body()
+	# 「兩邊」＋底下放一張圖
+	var sticker: Ornament = ORNAMENT_SCRIPT.new()
+	sticker.side = CreaturePart.Side.BOTH
+	sticker.shape = Ornament.Shape.NONE
+	sticker.attach_segment = 3
+	var sprite := Sprite2D.new()
+	sprite.texture = load("res://icon.svg")
+	sprite.position = Vector2(20, 0)
+	sticker.add_child(sprite)
+	body.add_child(sticker)
+	await get_tree().process_frame
+	var mirror: Node2D = sticker.get_node_or_null("MirrorSide")
+	_expect(mirror != null and mirror.get_child_count() == 1 and mirror.get_child(0) is Sprite2D, "「兩邊」：執行時多一份子節點給右邊")
+	var left_sprite: Vector2 = sprite.global_position
+	var right_sprite: Vector2 = (mirror.get_child(0) as Node2D).global_position if mirror != null else Vector2.ZERO
+	var joint: Vector2 = body.get_joint(3)
+	var across: Vector2 = Vector2.from_angle(body.get_angle(3) + PI / 2.0)
+	_expect((left_sprite - joint).dot(across) < -1.0 and (right_sprite - joint).dot(across) > 1.0, "左邊的圖在左側、複製的圖在右側")
+	_expect(mirror != null and mirror.get_global_transform().determinant() < 0.0, "右邊的圖是翻過來的（scale.y = -1）")
+
+	# 每種形狀、每種動法都跑一下
+	var ornament: Ornament = ORNAMENT_SCRIPT.new()
+	body.add_child(ornament)
+	await get_tree().process_frame
+	for motion_id: int in [Ornament.Motion.FIXED, Ornament.Motion.FLAP, Ornament.Motion.SPRING]:
+		ornament.motion = motion_id
+		for shape_id: int in 10:
+			ornament.shape = shape_id
+			for side_id: int in 4:
+				ornament.side = side_id
+				await get_tree().process_frame
+	_expect(true, "三種動法 × 十種形狀 × 四種左右都不會出錯")
+
+	# 彈簧：頭急轉 90 度後停住，掛件會落後、晃過頭，最後停在那一節的方向
+	ornament.side = CreaturePart.Side.CENTER
+	ornament.motion = Ornament.Motion.SPRING
+	ornament.set_process(false)
+	ornament.reset_pose()
+	ornament.update_spring(FRAME)
+	creature.heading += PI / 2.0
+	body.reset_pose()  # 只重擺身體；creature.reset_pose() 會連掛件的彈簧一起歸零
+	var lags: Array[float] = []
+	for i: int in 120:
+		ornament.update_spring(FRAME)
+		lags.append(ornament._spring_lag())
+	var overshoot: bool = false
+	for lag: float in lags:
+		if signf(lag) != signf(lags[0]) and absf(lag) > 0.01:
+			overshoot = true
+	_expect(absf(lags[0]) > 1.0, "轉彎後一開始落後（%.0f 度）" % rad_to_deg(lags[0]))
+	_expect(overshoot, "會晃過頭再回來")
+	_expect(absf(lags[-1]) < 0.05, "2 秒後停在那一節的方向（還差 %.1f 度）" % rad_to_deg(lags[-1]))
+	await _free(creature)
+
+
+func _test_eyes_and_gradient() -> void:
+	print("--- 眼睛、單色漸層 ---")
+	var creature: Creature = await _spawn({})
+	var body: ChainBody = creature.get_body()
+	var eyes: Eyes = EYES_SCRIPT.new()
+	body.add_child(eyes)
+	var food: Node2D = FOOD_SCRIPT.new()
+	food.position = creature.global_position + Vector2(0, 100)
+	add_child(food)
+	for count: int in range(1, 7):
+		eyes.count = count
+		_expect(eyes.get_eye_positions().size() == count, "%d 顆眼睛" % count)
+		for target: int in 4:
+			eyes.look_target = target
+			await get_tree().process_frame
+	eyes.look_target = Eyes.LookAt.FOOD
+	for i: int in 30:
+		await get_tree().process_frame
+	_expect(eyes._look.dot(Vector2.DOWN) > 0.9, "看最近的食物：瞳孔朝向食物（下方）")
+	eyes.blink = true
+	eyes._blink_timer = 0.0
+	await get_tree().process_frame
+	_expect(eyes._blinking, "時間到會眨眼")
+
+	# 只有一個顏色的 Gradient：頭到尾都是那個顏色
+	var single := Gradient.new()
+	single.offsets = PackedFloat32Array([0.0])
+	single.colors = PackedColorArray([Color.RED])
+	body.body_gradient = single
+	_expect(body._body_color(0.0) == Color.RED and body._body_color(1.0) == Color.RED, "身體：單色漸層頭尾都是紅色")
+	var tentacle: Tentacle = TENTACLE_SCRIPT.new()
+	tentacle.color_gradient = single
+	body.add_child(tentacle)
+	var ornament: Ornament = ORNAMENT_SCRIPT.new()
+	ornament.color_gradient = single
+	body.add_child(ornament)
+	await get_tree().process_frame
+	_expect(tentacle._gradient_color(0.5) == Color.RED and ornament._gradient_color(0.9) == Color.RED, "觸手、掛件：單色漸層正常")
+	body.body_gradient = null
+	await get_tree().process_frame
+	_expect(true, "漸層清空（null）也不會出錯")
+	food.queue_free()
 	await _free(creature)

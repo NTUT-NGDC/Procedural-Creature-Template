@@ -1,0 +1,78 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_creature"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_body"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ik_leg.gd" id="4_leg"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes.gd" id="5_eyes"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament.gd" id="6_ornament"]
+[ext_resource type="Texture2D" path="res://icon.svg" id="7_icon"]
+
+[node name="TestDragon" type="Node2D"]
+script = ExtResource("1_creature")
+speed = 220.0
+
+[node name="Body" type="Node2D" parent="."]
+script = ExtResource("2_body")
+segment_count = 24
+spacing = 12.0
+thickness = 15.0
+swim_amplitude = 3.0
+pattern = 3
+
+[node name="Eyes" type="Node2D" parent="Body"]
+script = ExtResource("5_eyes")
+look_target = 1
+
+[node name="Wings" type="Node2D" parent="Body"]
+script = ExtResource("6_ornament")
+attach_segment = 4
+side = 2
+angle = 1.7453293
+shape = 5
+size = 1.6
+on_top = false
+motion = 1
+
+[node name="Horns" type="Node2D" parent="Body"]
+script = ExtResource("6_ornament")
+side = 2
+offset = Vector2(-4, -6)
+angle = 2.7925268
+size = 0.8
+
+[node name="Antenna" type="Node2D" parent="Body"]
+script = ExtResource("6_ornament")
+offset = Vector2(4, 0)
+shape = 7
+size = 0.9
+motion = 2
+
+[node name="StickerOrnament" type="Node2D" parent="Body"]
+script = ExtResource("6_ornament")
+attach_segment = 12
+side = 2
+angle = 1.5707964
+shape = 0
+size = 0.6
+
+[node name="Sprite2D" type="Sprite2D" parent="Body/StickerOrnament"]
+position = Vector2(20, 0)
+scale = Vector2(0.25, 0.25)
+texture = ExtResource("7_icon")
+
+[node name="FrontLegs" type="Node2D" parent="Body"]
+script = ExtResource("4_leg")
+attach_segment = 3
+thigh_length = 16.0
+shin_length = 18.0
+rest_angle = 1.0471976
+step_distance = 16.0
+
+[node name="BackLegs" type="Node2D" parent="Body"]
+script = ExtResource("4_leg")
+attach_segment = 9
+thigh_length = 16.0
+shin_length = 18.0
+rest_angle = 1.2217305
+step_distance = 16.0
+group = 1
