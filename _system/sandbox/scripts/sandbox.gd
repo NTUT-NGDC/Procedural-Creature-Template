@@ -2,11 +2,15 @@ extends Node2D
 ## 開發用沙盒：放一隻生物，看它的動作對不對。匯出時不會帶進去。
 ##
 ## 左上角可以換生物、換控制方式、讓牠長大或變短。按 F1 顯示骨架。
+## 按滑鼠右鍵放食物（測試觸手「抓最近的食物」），頭碰到食物也會吃掉。
 ## 生物清單會列出下面幾個資料夾裡的 .tscn（根節點要是 Creature）。
 
 const CREATURE_FOLDERS: PackedStringArray = ["res://example/creatures/", "res://_system/sandbox/creatures/"]
 ## 控制方式選單的文字，順序跟 Creature 的「控制方式」一樣
 const MODE_NAMES: PackedStringArray = ["玩家（滑鼠）", "玩家（WASD）", "漫遊", "追玩家", "躲玩家"]
+const FOOD_SCRIPT: GDScript = preload("res://_system/sandbox/scripts/sandbox_food.gd")
+## 一開始放幾個食物
+const START_FOOD: int = 6
 
 @onready var _creature_option: OptionButton = %CreatureOption
 @onready var _mode_option: OptionButton = %ModeOption
@@ -35,6 +39,8 @@ func _ready() -> void:
 	_shrink_button.pressed.connect(_on_shrink_pressed)
 	if not _paths.is_empty():
 		_spawn(0)
+	for _i: int in START_FOOD:
+		_add_food(Vector2(randf_range(100, 1180), randf_range(100, 620)))
 
 
 func _process(_delta: float) -> void:
@@ -75,3 +81,24 @@ func _on_grow_pressed() -> void:
 func _on_shrink_pressed() -> void:
 	if _creature != null:
 		_creature.shrink(1)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_RIGHT:
+		_add_food(get_global_mouse_position())
+
+
+func _add_food(at: Vector2) -> void:
+	var food: Node2D = FOOD_SCRIPT.new()
+	food.position = at
+	add_child(food)
+
+
+## 頭碰到食物就吃掉（池塘小遊戲裡是用碰撞區判斷，沙盒簡單算距離就好）
+func _eat_with_head() -> void:
+	for node: Node in get_tree().get_nodes_in_group("food"):
+		var food: Node2D = node as Node2D
+		if food.global_position.distance_to(_creature.global_position) < _creature.head_radius + 6.0:
+			food.remove_from_group("food")
+			_creature.eat(food)

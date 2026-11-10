@@ -1,0 +1,56 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_creature"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_body"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle.gd" id="3_tentacle"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ik_leg.gd" id="4_leg"]
+
+[node name="TestSpider" type="Node2D"]
+script = ExtResource("1_creature")
+speed = 200.0
+turn_speed = 5.2359877
+
+[node name="Body" type="Node2D" parent="."]
+script = ExtResource("2_body")
+segment_count = 3
+spacing = 18.0
+thickness = 16.0
+pattern = 0
+
+[node name="Legs1" type="Node2D" parent="Body"]
+script = ExtResource("4_leg")
+thigh_length = 34.0
+shin_length = 42.0
+attach_segment = 0
+rest_angle = 0.5235988
+rest_distance = 0.9
+step_distance = 16.0
+
+[node name="Legs2" type="Node2D" parent="Body"]
+script = ExtResource("4_leg")
+thigh_length = 34.0
+shin_length = 42.0
+attach_segment = 1
+rest_angle = 1.2217305
+rest_distance = 0.9
+step_distance = 16.0
+group = 1
+
+[node name="Legs3" type="Node2D" parent="Body"]
+script = ExtResource("4_leg")
+thigh_length = 34.0
+shin_length = 42.0
+attach_segment = 1
+rest_angle = 1.9198622
+rest_distance = 0.9
+step_distance = 16.0
+
+[node name="Legs4" type="Node2D" parent="Body"]
+script = ExtResource("4_leg")
+thigh_length = 34.0
+shin_length = 42.0
+attach_segment = 2
+rest_angle = 2.6179938
+rest_distance = 0.9
+step_distance = 16.0
+group = 1

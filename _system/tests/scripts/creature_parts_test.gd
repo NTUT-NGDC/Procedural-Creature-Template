@@ -6,12 +6,18 @@ extends Node
 ## 4. reset_pose()：瞬間移動後身體重新拉直在頭後面
 ## 5. 沒有身體的生物：長度用等級換算，也能移動
 ## 6. 全身碰撞：每節都有碰撞區，長大後跟著增加
+## 7. 蜘蛛的腳：直走、急轉彎、原地轉圈時膝蓋不會翻面、同一邊的腳不會交叉；停下後 1 秒內腳都站穩
+## 8. 觸手：FABRIK 伸得到目標、根部不動；「抓最近的食物」會吃掉食物；掛在超出範圍的節不會出錯
+## 9. reset_pose()：瞬間移動後腳和觸手都在新位置；只有觸手、沒有身體的生物也能動
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/creature_parts_test.tscn
 
 const CREATURE_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/creature.gd")
 const BODY_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/chain_body.gd")
+const LEG_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/ik_leg.gd")
+const TENTACLE_SCRIPT: GDScript = preload("res://game/creature_parts/scripts/tentacle.gd")
+const FOOD_SCRIPT: GDScript = preload("res://_system/sandbox/scripts/sandbox_food.gd")
 const FRAME: float = 1.0 / 60.0
 
 var _failures: int = 0
@@ -24,6 +30,10 @@ func _ready() -> void:
 	await _test_reset_pose()
 	await _test_no_body()
 	await _test_full_body_collision()
+	await _test_spider_legs()
+	await _test_tentacle()
+	await _test_parts_reset_pose()
+	await _test_tentacle_only()
 
 	if _failures == 0:
 		print("[生物零件測試] 全部 PASS")
@@ -180,3 +190,222 @@ func _expect(ok: bool, description: String) -> void:
 	print("  %s %s" % ["PASS" if ok else "FAIL", description])
 	if not ok:
 		_failures += 1
+
+
+# ---------------------------------------------------------------- 第二段：腳、觸手
+
+
+## 蜘蛛：短身體＋四對腳，A、B 兩組交錯
+func _make_spider() -> Creature:
+	var creature: Creature = CREATURE_SCRIPT.new()
+	creature.position = Vector2(640, 360)
+	var body: ChainBody = BODY_SCRIPT.new()
+	body.segment_count = 3
+	body.spacing = 18.0
+	creature.add_child(body)
+	# 調過的參數：落腳角度間隔 40 度、落腳距離 0.9、髖關節分散在三節，直走時腳不會交叉
+	var rest_degrees: Array[float] = [30.0, 70.0, 110.0, 150.0]
+	var attach: Array[int] = [0, 1, 1, 2]
+	for index: int in rest_degrees.size():
+		var leg: IKLeg = LEG_SCRIPT.new()
+		leg.attach_segment = attach[index]
+		leg.rest_distance = 0.9
+		leg.step_distance = 16.0
+		leg.thigh_length = 34.0
+		leg.shin_length = 42.0
+		leg.rest_angle = deg_to_rad(rest_degrees[index])
+		leg.group = index % 2
+		body.add_child(leg)
+	return creature
+
+
+## 手動跑 frames 幀：頭往前走（speed_ratio × 速度）、轉彎，再依序更新身體和所有零件。
+## check 是每幀跑完要呼叫的檢查（可以是空的 Callable）
+func _drive(creature: Creature, frames: int, turn_degrees: float, speed_ratio: float, check: Callable) -> void:
+	var parts: Array[Node] = creature.find_children("*", "", true, false)
+	for i: int in frames:
+		creature.heading += deg_to_rad(turn_degrees) * FRAME
+		creature.velocity = Vector2.from_angle(creature.heading) * creature.speed * speed_ratio
+		creature.global_position += creature.velocity * FRAME
+		for part: Node in parts:
+			if part is ChainBody or part is CreaturePart:
+				part.call("_process", FRAME)
+		if check.is_valid():
+			check.call()
+	await get_tree().process_frame
+
+
+func _test_spider_legs() -> void:
+	print("--- 蜘蛛的腳 ---")
+	var creature: Creature = _make_spider()
+	add_child(creature)
+	await get_tree().process_frame
+	for node: Node in [creature] + creature.find_children("*", "", true, false):
+		node.set_process(false)
+	var legs: Array[IKLeg] = []
+	for node: Node in creature.find_children("*", "", true, false):
+		if node is IKLeg:
+			legs.append(node)
+
+	# 每隻腳一開始的膝蓋在哪一側（外積的正負），之後不能變
+	var knee_sides: Dictionary = {}
+	# crossings：腳的線段交叉的幀數；swaps：同一邊腳掌前後順序顛倒的幀數（每個階段重新計算）
+	var stats: Dictionary = {"flips": 0, "crossings": 0, "swaps": 0}
+	var check: Callable = func() -> void:
+		if _feet_out_of_order(legs, creature):
+			stats.swaps += 1
+		var segments: Array = []  # [左右, 起點, 終點]
+		for leg: IKLeg in legs:
+			var signs: PackedFloat32Array = CreaturePart.side_signs(leg.side)
+			for k: int in signs.size():
+				var hip: Vector2 = leg._hip(signs[k])
+				var foot: Vector2 = hip + (leg._feet[k] - hip).limit_length(leg.thigh_length + leg.shin_length - 0.01)
+				var knee: Vector2 = leg.solve_knee(hip, foot, leg.thigh_length, leg.shin_length, leg._bend(signs[k]))
+				var cross: float = (foot - hip).cross(knee - hip)
+				var key: String = "%s_%d" % [leg.get_instance_id(), k]
+				if absf(cross) > 1.0:
+					if knee_sides.has(key) and signf(cross) != knee_sides[key]:
+						stats.flips += 1
+					knee_sides[key] = signf(cross)
+				segments.append([signs[k], hip, knee])
+				segments.append([signs[k], knee, foot])
+		for a: int in segments.size():
+			for b: int in range(a + 1, segments.size()):
+				# 同一隻腳的大腿、小腿相連，不算交叉
+				if a % 2 == 0 and b == a + 1:
+					continue
+				if segments[a][0] != segments[b][0]:
+					continue
+				var hit: Variant = Geometry2D.segment_intersects_segment(segments[a][1], segments[a][2], segments[b][1], segments[b][2])
+				# 掛在同一節的腳共用髖關節，在髖關節相交不算交叉
+				if hit != null and (hit as Vector2).distance_to(segments[a - a % 2][1]) > 2.0 and (hit as Vector2).distance_to(segments[b - b % 2][1]) > 2.0:
+					stats.crossings += 1
+					return
+
+	# [階段名稱, 幀數, 每秒轉幾度, 速度比例, 要不要檢查]
+	# 直走、停下時要求幾乎不交叉（最多 2 幀，1/30 秒內看不出來）；轉彎時只印出來參考：
+	# 生物是頭帶著身體走，急轉、原地轉圈時身體會繞著頭甩，腳難免短暫交疊
+	var phases: Array = [
+		["直走 2 秒", 120, 0.0, 1.0, true],
+		["急轉彎（每秒 300 度）", 36, 300.0, 1.0, false],
+		["再直走 1 秒", 60, 0.0, 1.0, true],
+		["突然停下 1 秒", 60, 0.0, 0.0, true],
+		["慢走繞小圈", 120, 300.0, 0.3, false],
+		["停下 1 秒", 60, 0.0, 0.0, true],
+		["原地轉圈（每秒 300 度）", 72, 300.0, 0.0, false],
+		["停下 1 秒", 60, 0.0, 0.0, true],
+	]
+	for phase: Array in phases:
+		stats.crossings = 0
+		stats.swaps = 0
+		await _drive(creature, phase[1], phase[2], phase[3], check)
+		var summary: String = "%s：線段交叉 %d 幀、腳掌前後顛倒 %d 幀（共 %d 幀）" % [phase[0], stats.crossings, stats.swaps, phase[1]]
+		if phase[4]:
+			_expect(stats.crossings <= 2 and stats.swaps <= 2, summary)
+		else:
+			print("  （參考）" + summary)
+		if phase[3] == 0.0 and phase[2] == 0.0:
+			_expect(_legs_settled(legs), "%s後，每隻腳都站穩（沒有在空中、離理想點不到半個跨步）" % phase[0])
+	_expect(stats.flips == 0, "整段都沒有膝蓋翻面（翻面 %d 次）" % stats.flips)
+	await _free(creature)
+
+
+## 同一邊的腳掌，沿著身體方向的前後順序有沒有顛倒（先加的腳應該在比較前面）
+func _feet_out_of_order(legs: Array[IKLeg], creature: Creature) -> bool:
+	var center: Vector2 = creature.get_body().get_joint(1)
+	var forward: Vector2 = Vector2.from_angle(creature.get_body().get_angle(1))
+	for side_index: int in 2:
+		var previous: float = INF
+		for leg: IKLeg in legs:
+			var along: float = (leg._feet[side_index] - center).dot(forward)
+			if along > previous + 1.0:
+				return true
+			previous = along
+	return false
+
+
+func _legs_settled(legs: Array[IKLeg]) -> bool:
+	for leg: IKLeg in legs:
+		var signs: PackedFloat32Array = CreaturePart.side_signs(leg.side)
+		for k: int in signs.size():
+			if leg._stepping[k] or leg._feet[k].distance_to(leg._rest_point(signs[k])) > leg.step_distance * 0.5 + 0.5:
+				return false
+	return true
+
+
+func _test_tentacle() -> void:
+	print("--- 觸手 ---")
+	var creature: Creature = await _spawn({"segment_count": 6})
+	var tentacle: Tentacle = TENTACLE_SCRIPT.new()
+	tentacle.side = CreaturePart.Side.CENTER
+	tentacle.length = 80.0
+	tentacle.segment_count = 10
+	creature.get_body().add_child(tentacle)
+	await get_tree().process_frame
+	tentacle.set_process(false)
+
+	var base: Vector2 = tentacle._root(0.0)
+	var target: Vector2 = base + Vector2(30, 50)
+	var chain: PackedVector2Array = tentacle.fabrik(tentacle._chains[0].duplicate(), base, target)
+	_expect(chain[-1].distance_to(target) < 1.0, "FABRIK 4 次：末端離目標 %.2f px" % chain[-1].distance_to(target))
+	_expect(chain[0] == base, "根部沒有離開原位")
+	var far: PackedVector2Array = tentacle.fabrik(chain.duplicate(), base, base + Vector2(500, 0))
+	_expect(absf(far[-1].distance_to(base) - 80.0) < 0.5, "目標太遠：拉直到最長 80（實際 %.1f）" % far[-1].distance_to(base))
+
+	tentacle.attach_segment = 999
+	_expect(tentacle._root(0.0).is_equal_approx(creature.get_body().get_joint(-1)), "掛在第 999 節：當成最後一節")
+	tentacle.attach_segment = 0
+
+	# 抓最近的食物
+	tentacle.behavior = Tentacle.Behavior.GRAB_FOOD
+	tentacle.set_process(true)
+	var food: Node2D = FOOD_SCRIPT.new()
+	food.position = tentacle._root(0.0) + Vector2(40, 40)
+	add_child(food)
+	var eaten: Array[Node] = []
+	creature.ate.connect(func(node: Node) -> void: eaten.append(node))
+	for i: int in 60:
+		await get_tree().process_frame
+		if not eaten.is_empty():
+			break
+	_expect(eaten == [food], "觸手抓到食物，發出 ate 訊號")
+	_expect(creature.level == 1, "吃到食物後長大（等級 %d）" % creature.level)
+	await _free(creature)
+
+
+func _test_parts_reset_pose() -> void:
+	print("--- 瞬間移動後 reset_pose ---")
+	var creature: Creature = _make_spider()
+	var tentacle: Tentacle = TENTACLE_SCRIPT.new()
+	creature.get_body().add_child(tentacle)
+	add_child(creature)
+	await get_tree().process_frame
+	for node: Node in [creature] + creature.find_children("*", "", true, false):
+		node.set_process(false)
+	await _drive(creature, 60, 90.0, 1.0, Callable())
+	creature.global_position = Vector2(200, 600)
+	creature.heading = 0.0
+	creature.reset_pose()
+	var leg: IKLeg = creature.get_body().get_child(0)
+	_expect(leg._feet[0].is_equal_approx(leg._rest_point(-1.0)), "腳掌在新的理想落腳點")
+	_expect(tentacle._chains[0][0].is_equal_approx(tentacle._root(-1.0)), "觸手根部在新位置")
+	_expect(tentacle._chains[0][-1].distance_to(Vector2(200, 600)) < tentacle.length + 40.0, "觸手末端在新位置附近")
+	await _free(creature)
+
+
+func _test_tentacle_only() -> void:
+	print("--- 只有觸手、沒有身體 ---")
+	var creature: Creature = CREATURE_SCRIPT.new()
+	creature.position = Vector2(640, 360)
+	creature.control_mode = Creature.Mode.WANDER
+	var tentacle: Tentacle = TENTACLE_SCRIPT.new()
+	tentacle.behavior = Tentacle.Behavior.WAVE
+	creature.add_child(tentacle)
+	add_child(creature)
+	var start: Vector2 = creature.global_position
+	for i: int in 60:
+		await get_tree().process_frame
+	_expect(creature.global_position != start, "會移動")
+	_expect(tentacle._chains.size() == 2, "「兩邊」有兩條觸手")
+	_expect(tentacle._chains[0][0].distance_to(creature.global_position) <= creature.head_radius + 0.01, "觸手根部跟著頭")
+	await _free(creature)

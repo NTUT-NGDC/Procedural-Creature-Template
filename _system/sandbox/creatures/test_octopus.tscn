@@ -1,0 +1,39 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature.gd" id="1_creature"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/chain_body.gd" id="2_body"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle.gd" id="3_tentacle"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ik_leg.gd" id="4_leg"]
+
+[node name="TestOctopus" type="Node2D"]
+script = ExtResource("1_creature")
+speed = 150.0
+turn_speed = 3.1415927
+
+[node name="Body" type="Node2D" parent="."]
+script = ExtResource("2_body")
+segment_count = 3
+spacing = 12.0
+thickness = 24.0
+
+[node name="ArmsFront" type="Node2D" parent="Body"]
+script = ExtResource("3_tentacle")
+reach_angle = 1.7453293
+length = 90.0
+behavior = 3
+
+[node name="ArmsMid" type="Node2D" parent="Body"]
+script = ExtResource("3_tentacle")
+reach_angle = 2.2689281
+length = 100.0
+
+[node name="ArmsBack" type="Node2D" parent="Body"]
+script = ExtResource("3_tentacle")
+reach_angle = 2.6179938
+length = 110.0
+
+[node name="ArmsTail" type="Node2D" parent="Body"]
+script = ExtResource("3_tentacle")
+attach_segment = 1
+reach_angle = 2.9670596
+length = 120.0

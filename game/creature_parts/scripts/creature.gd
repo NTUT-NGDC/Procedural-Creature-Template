@@ -13,6 +13,8 @@ signal grew(level: int)
 signal hurt()
 ## 短到不能再短時發出（剩 2 節）
 signal died()
+## 吃掉一個食物時發出（用頭吃、用觸手抓都算），在 grew 之前
+signal ate(food: Node)
 
 ## 長度最少幾節，到這裡就算死掉
 const MIN_LENGTH: int = 2
@@ -179,6 +181,23 @@ func grow(amount: int = 1) -> void:
 	level += amount
 	_notify_parts()
 	grew.emit(level)
+
+
+## 吃掉一個食物：通知食物「被吃了」（食物有 on_eaten() 的話），發出 ate，再長大 1
+func eat(food: Node) -> void:
+	if food.has_method("on_eaten"):
+		food.call("on_eaten", self)
+	ate.emit(food)
+	grow(1)
+
+
+## 換腳協調：另一組有腳在空中時回傳 false（group 這組的腳先等一下）。
+## 腳分 A、B 兩組輪流走，看起來才像真的在走路
+func can_step(group: int) -> bool:
+	for node: Node in find_children("*", "", true, false):
+		if node is IKLeg and (node as IKLeg).is_group_stepping(1 - group):
+			return false
+	return true
 
 
 ## 變短：等級 -amount，通知所有零件，發出 hurt 訊號；短到剩 2 節時再發出 died
