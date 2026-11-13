@@ -184,6 +184,19 @@ func on_grow(level: int) -> void:
 	segment_count += change
 
 
+## 現在每一節的位置（全局座標），[0] 是頭
+func get_joints() -> PackedVector2Array:
+	return _joints.duplicate()
+
+
+## 直接擺好每一節的位置（生物重長時用，才不會突然拉直）。節數不一樣時從尾巴補上或拿掉
+func set_joints(joints: PackedVector2Array) -> void:
+	if joints.size() < 2:
+		return
+	_joints = joints.duplicate()
+	_resize_joints()
+
+
 ## 預覽姿勢：從頭往頭的反方向拉成一直線
 func reset_pose() -> void:
 	var head: Vector2 = _get_head_position()

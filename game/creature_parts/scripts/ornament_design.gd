@@ -47,6 +47,11 @@ extends PartDesign
 @export_range(-180, 180, 1, "radians_as_degrees") var image_rotation: float = 0.0
 
 
+## 等比放大時要一起放大的欄位
+func length_fields() -> PackedStringArray:
+	return PackedStringArray(["offset", "size"])
+
+
 func design_only_fields() -> PackedStringArray:
 	return PackedStringArray(["image_file", "image_scale", "image_rotation"])
 

@@ -38,3 +38,8 @@ extends PartDesign
 @export var suckers: bool = true
 ## 吸盤顏色
 @export var sucker_color: Color = Color("#f9d3e0")
+
+
+## 等比放大時要一起放大的欄位
+func length_fields() -> PackedStringArray:
+	return PackedStringArray(["length", "base_width", "tip_width", "wave_amplitude"])

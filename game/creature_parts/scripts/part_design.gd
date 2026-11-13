@@ -21,6 +21,17 @@ func design_only_fields() -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 「長度」類的欄位：等比放大時要一起乘上倍率（例如間距、粗細、腳長）。子類別覆寫
+func length_fields() -> PackedStringArray:
+	return PackedStringArray()
+
+
+## 等比放大：長度類的欄位都乘上 factor
+func scale_lengths(factor: float) -> void:
+	for field: String in length_fields():
+		set(field, get(field) * factor)
+
+
 ## 這份資料的所有欄位（照宣告的順序）
 func fields() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

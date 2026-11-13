@@ -68,7 +68,11 @@ var _current_speed: float = 0.0
 ## 漫遊：多久之後換方向、要往哪個方向
 var _wander_timer: float = 0.0
 var _wander_angle: float = 0.0
-## 依設計檔長出來的節點：身體、零件（順序跟 design.all_parts() 一樣）
+## 平衡資料：體型、能力的係數。空的就用預設的 balance.tres
+var balance: CreatureBalance
+## 現在的形狀：設計檔照現在的等級長大後的樣子（CreatureGrowth.shape_at() 的結果）。沒有設計檔是 null
+var shape: CreatureDesign
+## 依設計檔長出來的節點：身體、零件（順序跟 shape.all_parts() 一樣）
 var _built_body: ChainBody
 var _built_parts: Array[Node] = []
 ## 長出來時的「結構」（零件數量、左右、圖）。結構沒變就只更新屬性，不重長
@@ -181,18 +185,19 @@ func _create_head_area() -> void:
 	head_area.set_meta("creature", self)
 	_head_shape = CircleShape2D.new()
 	_head_shape.radius = head_radius
-	var shape := CollisionShape2D.new()
-	shape.shape = _head_shape
-	head_area.add_child(shape)
+	var collision := CollisionShape2D.new()
+	collision.shape = _head_shape
+	head_area.add_child(collision)
 	add_child(head_area)
 
 
 # ---------------------------------------------------------------- 對外的功能
 
 
-## 長大：等級 +amount，通知所有零件（身體會變長），發出 grew 訊號
+## 長大：等級 +amount。有設計檔的照長大方式變形狀；沒有的通知所有零件（身體會變長）。發出 grew 訊號
 func grow(amount: int = 1) -> void:
 	level += amount
+	apply_design()
 	_notify_parts()
 	grew.emit(level)
 
@@ -217,6 +222,7 @@ func can_step(group: int) -> bool:
 ## 變短：等級 -amount，通知所有零件，發出 hurt 訊號；長度短到剩 2 時再發出 died
 func shrink(amount: int = 1) -> void:
 	level -= amount
+	apply_design()
 	_notify_parts()
 	hurt.emit()
 	if get_length() <= MIN_LENGTH:
@@ -256,20 +262,23 @@ func set_collision(layer: int, mask: int) -> void:
 # ---------------------------------------------------------------- 設計檔
 
 
-## 依設計檔長出（或更新）身體和零件。改了設計檔的內容之後呼叫這個，生物就會變樣子。
-## 零件數量、左右、圖沒變時只更新屬性（生物不會跳回預覽姿勢）；變了就整個重長
+## 依設計檔和現在的等級長出（或更新）身體和零件。改了設計檔的內容之後呼叫這個，生物就會變樣子。
+## 零件數量、左右、圖沒變時只更新屬性；變了就整個重長，但身體維持原本的姿勢
 func apply_design() -> void:
 	if design == null:
 		_clear_built()
+		shape = null
 		return
+	shape = CreatureGrowth.shape_at(design, level, get_balance())
 	var structure: String = _design_structure()
 	if structure != _built_structure or not is_instance_valid(_built_body):
+		var pose: PackedVector2Array = _built_body.get_joints() if is_instance_valid(_built_body) else PackedVector2Array()
 		_clear_built()
-		_build()
+		_build(pose)
 		_built_structure = structure
 	else:
-		design.body.apply_to(_built_body)
-		var parts: Array[PartDesign] = design.all_parts()
+		shape.body.apply_to(_built_body)
+		var parts: Array[PartDesign] = shape.all_parts()
 		for i: int in parts.size():
 			parts[i].apply_to(_built_parts[i])
 			if parts[i] is OrnamentDesign:
@@ -298,13 +307,17 @@ func _part_layer(part: Node) -> int:
 	return _built_body.resolve_index(part.get("attach_segment"))
 
 
-## 長出身體，再把零件一個一個加在身體上。節點不設 owner，所以不會存進場景檔
-func _build() -> void:
+## 長出身體，再把零件一個一個加在身體上。節點不設 owner，所以不會存進場景檔。
+## pose 是重長前身體的關節，有的話身體維持原本的姿勢（長大時才不會突然拉直）
+func _build(pose: PackedVector2Array) -> void:
 	_built_body = ChainBody.new()
 	_built_body.name = "Body"
+	_built_body.segments_per_growth = 0  # 長大由長大方式決定，身體自己不加節
 	add_child(_built_body)
-	design.body.apply_to(_built_body)
-	for part: PartDesign in design.all_parts():
+	shape.body.apply_to(_built_body)
+	if not pose.is_empty() and not Engine.is_editor_hint():
+		_built_body.set_joints(pose)
+	for part: PartDesign in shape.all_parts():
 		var node: Node2D = _new_part_node(part)
 		if part is OrnamentDesign:
 			# 掛件「兩邊」要在加進場景前就有圖，右邊才會複製一份
@@ -333,7 +346,7 @@ func _add_image(ornament: Node2D, part: OrnamentDesign) -> void:
 		return
 	var sprite := Sprite2D.new()
 	sprite.name = "Image"
-	sprite.texture = design.load_image(part.image_file)
+	sprite.texture = shape.load_image(part.image_file)
 	ornament.add_child(sprite)
 	_apply_image(ornament, part)
 
@@ -358,11 +371,23 @@ func _clear_built() -> void:
 ## 設計檔的「結構」寫成一串字：零件的種類和數量、掛件的左右和圖。這串字變了就要重長
 func _design_structure() -> String:
 	var text: String = ""
-	for part: PartDesign in design.all_parts():
+	for part: PartDesign in shape.all_parts():
 		text += part.get_script().get_global_name() + ","
 		if part is OrnamentDesign:
 			text += "%d:%s," % [part.side, part.image_file]
 	return text
+
+
+## 平衡資料（沒有指定就用預設的）
+func get_balance() -> CreatureBalance:
+	if balance == null:
+		balance = CreatureBalance.get_default()
+	return balance
+
+
+## 現在的能力（速度、轉向、抓取、視野、升一級要吃幾個）。沒有設計檔是 null
+func get_stats() -> CreatureStats:
+	return CreatureStats.compute(shape, get_balance()) if shape != null else null
 
 
 func _notify_parts() -> void:

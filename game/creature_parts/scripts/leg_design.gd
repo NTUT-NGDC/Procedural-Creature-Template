@@ -38,3 +38,8 @@ extends PartDesign
 @export_range(1, 20, 0.5) var leg_width: float = 4.0
 ## 腳的顏色
 @export var leg_color: Color = Color("#c9b59c")
+
+
+## 等比放大時要一起放大的欄位
+func length_fields() -> PackedStringArray:
+	return PackedStringArray(["thigh_length", "shin_length", "step_distance", "lift_height", "leg_width"])

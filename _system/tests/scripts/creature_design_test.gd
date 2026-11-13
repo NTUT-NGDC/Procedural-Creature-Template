@@ -213,8 +213,13 @@ func _test_images() -> void:
 # ---------------------------------------------------------------- 工具
 
 
+## 產生一隻生物。平衡資料不限制起始體型，長出來的樣子才會跟設計檔一模一樣（大小限制在 creature_growth_test 測）
 func _spawn(design: CreatureDesign) -> Creature:
 	var creature := Creature.new()
+	var balance := CreatureBalance.new()
+	balance.min_start_size = 1.0
+	balance.max_start_size = 1e9
+	creature.balance = balance
 	creature.design = design
 	creature.position = Vector2(640, 360)
 	creature.control_mode = Creature.Mode.WANDER

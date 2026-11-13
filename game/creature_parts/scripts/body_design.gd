@@ -32,3 +32,8 @@ extends PartDesign
 @export_enum("無", "斑點", "條紋", "背鰭") var pattern: int = ChainBody.Pattern.SPOTS
 ## 花紋顏色
 @export var pattern_color: Color = Color("#2f6e45")
+
+
+## 等比放大時要一起放大的欄位
+func length_fields() -> PackedStringArray:
+	return PackedStringArray(["spacing", "thickness", "swim_amplitude"])
