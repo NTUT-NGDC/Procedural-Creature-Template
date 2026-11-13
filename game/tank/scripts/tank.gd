@@ -153,6 +153,10 @@ func _spawn_player() -> void:
 	if player_design == null:
 		_hud.call("show_message", "還沒有設定玩家生物。\n請點標題畫面的 TitleScreen 節點，把你的 design.tres 拖進「Player Design」。")
 		return
+	var complexity: int = CreatureStats.complexity_of(player_design, get_balance())
+	if complexity > get_balance().max_complexity:  # 單人、對戰同一個上限：這裡放得進來的，對戰也一定放得進來
+		_hud.call("show_message", "這隻生物太複雜了（複雜度 %d，上限 %d）。\n請回生物工坊減少腳、觸手、節數或掛件。" % [complexity, get_balance().max_complexity])
+		return
 	player = Creature.new()
 	player.name = "Player"
 	player.design = player_design

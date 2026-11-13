@@ -8,6 +8,7 @@ extends Node
 ## 6. 生物升級：身體照長大方式變；長出新腳要重長時，身體維持原本的姿勢
 ## 7. 能力：腳多跑得快、越大越慢、越長越難轉、觸手長抓得遠、眼睛多看得遠；都有上限；能力越強升級越貴
 ## 8. 平衡資料檔讀得到，星星 1～5
+## 9. 複雜度：範例都在上限內；長大不會超過上限（到上限改成整隻放大）；零件越多升級越貴，掛件不算成本
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/creature_growth_test.tscn
@@ -28,6 +29,7 @@ func _ready() -> void:
 	await _test_creature_grow()
 	_test_stats()
 	_test_balance_file()
+	_test_complexity()
 
 	if _failures == 0:
 		print("[長大與能力測試] 全部 PASS")
@@ -213,6 +215,48 @@ func _test_balance_file() -> void:
 		var count: int = stats.stars(ability, _balance.max_stars)
 		ok = ok and count >= 1 and count <= _balance.max_stars
 	_expect(ok and stats.stars("grab", _balance.max_stars) == 0, "星星在 1～%d 之間；沒有的能力 0 顆" % _balance.max_stars)
+
+
+func _test_complexity() -> void:
+	print("--- 複雜度 ---")
+	var limit: int = _balance.max_complexity
+	print("  （參考）範例的複雜度（上限 %d）：0 級 → 8 級 → 30 級" % limit)
+	for example: String in ["snake", "centipede", "octopus", "spider", "jellyfish", "dragon", "doodle", "predator_eel"]:
+		var design: CreatureDesign = _example(example)
+		print("    %-12s %3d → %3d → %3d" % [example, _stats(design).complexity, _stats(design, 8).complexity, _stats(design, 30).complexity])
+		_expect(_stats(design).complexity <= limit, "%s 0 級在上限內" % example)
+		var worst: int = 0
+		for mode: int in 3:
+			design.growth_mode = mode
+			for level: int in [1, 5, 10, 20, 30, 60]:
+				worst = maxi(worst, _stats(design, level).complexity)
+		_expect(worst <= limit, "%s 三種長大方式升到 60 級，複雜度最多 %d，沒超過上限" % [example, worst])
+
+	var centipede: CreatureDesign = _example("centipede")
+	var start: CreatureDesign = CreatureGrowth.shape_at(centipede, 0, _balance)
+	var grown: CreatureDesign = CreatureGrowth.shape_at(centipede, 30, _balance)
+	_expect(grown.legs.size() > start.legs.size() and grown.body.segment_count > start.body.segment_count, "② 蜈蚣長大：先加節、加腳（%d → %d 組腳）" % [start.legs.size(), grown.legs.size()])
+	_expect(grown.body.spacing > start.body.spacing, "② 蜈蚣到上限後改成整隻放大（間距 %.1f → %.1f）" % [start.body.spacing, grown.body.spacing])
+
+	var heavy: CreatureDesign = _example("centipede")
+	heavy.body.segment_count = 60
+	var heavy_start: int = _stats(heavy).complexity
+	_expect(heavy_start > limit and _stats(heavy, 20).complexity <= heavy_start, "原本就超過上限的設計檔（%d）：長大時不會再變多（%d）" % [heavy_start, _stats(heavy, 20).complexity])
+
+	var ornate: CreatureDesign = _example("spider")
+	var plain_stats: CreatureStats = _stats(ornate)
+	ornate.ornaments.append(OrnamentDesign.new())
+	var both := OrnamentDesign.new()
+	both.side = CreaturePart.Side.BOTH
+	ornate.ornaments.append(both)
+	_expect(_stats(ornate).complexity == plain_stats.complexity + _balance.points_per_ornament * 3, "掛件算複雜度：一個 + 兩邊一對 = %d 點" % (_balance.points_per_ornament * 3))
+	_expect(_stats(ornate).level_cost == plain_stats.level_cost, "掛件不算進升級成本")
+
+	var dense: CreatureDesign = _example("octopus")
+	for tentacle: TentacleDesign in dense.tentacles:
+		tentacle.segment_count *= 2  # 長度不變，只是節數變多（抓取範圍一樣）
+	_expect(_stats(dense).grab == _stats(_example("octopus")).grab and _stats(dense).level_cost > _stats(_example("octopus")).level_cost,
+		"觸手節數變多（抓取一樣）：複雜度 %d → %d，升級變貴 %d → %d" % [_stats(_example("octopus")).complexity, _stats(dense).complexity, _stats(_example("octopus")).level_cost, _stats(dense).level_cost])
 
 
 # ---------------------------------------------------------------- 工具

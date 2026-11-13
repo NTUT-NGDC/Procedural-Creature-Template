@@ -15,6 +15,9 @@ const OFFSET_RANGE: float = 100.0
 ## 名稱欄的寬度
 const NAME_WIDTH: float = 154.0
 
+## 改之前先問「可以這樣改嗎」：回傳 false 就退回原本的值（工坊用來擋「超過複雜度上限」）。空的就都可以改
+var can_change: Callable
+
 var _part: PartDesign
 var _labels: WorkshopLabels
 
@@ -89,8 +92,9 @@ func _slider(field: String, prop: Dictionary) -> Control:
 		number.text = ("%d°" % roundi(value)) if degrees else (str(int(value)) if is_equal_approx(value, roundf(value)) else "%.2f" % value)
 	show_value.call(slider.value)
 	slider.value_changed.connect(func(value: float) -> void:
-		show_value.call(value)
-		_set_field(field, deg_to_rad(value) if degrees else (int(value) if prop.type == TYPE_INT else value)))
+		if not _set_field(field, deg_to_rad(value) if degrees else (int(value) if prop.type == TYPE_INT else value)):
+			slider.set_value_no_signal(rad_to_deg(_part.get(field)) if degrees else float(_part.get(field)))  # 不能改：滑桿退回去
+		show_value.call(slider.value))
 	box.add_child(slider)
 	box.add_child(number)
 	return box
@@ -101,7 +105,9 @@ func _option(field: String, items: PackedStringArray) -> Control:
 	for item: String in items:
 		option.add_item(item.get_slice(":", 0))
 	option.select(_part.get(field))
-	option.item_selected.connect(func(index: int) -> void: _set_field(field, index))
+	option.item_selected.connect(func(index: int) -> void:
+		if not _set_field(field, index):
+			option.select(_part.get(field)))  # 不能改：選單退回去
 	return option
 
 
@@ -187,9 +193,15 @@ func _image_row() -> Control:
 # ---------------------------------------------------------------- 其他
 
 
-func _set_field(field: String, value: Variant) -> void:
+## 改一個欄位。can_change 說不行就退回原本的值，回傳 false
+func _set_field(field: String, value: Variant) -> bool:
+	var old: Variant = _part.get(field)
 	_part.set(field, value)
+	if can_change.is_valid() and not can_change.call():
+		_part.set(field, old)
+		return false
 	changed.emit()
+	return true
 
 
 func _add_header(text: String) -> void:

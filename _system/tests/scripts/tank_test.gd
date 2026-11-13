@@ -7,7 +7,7 @@ extends Node
 ## 4. 水草：有水流時會歪；生物經過被撥開（點在身體外面），生物走了會站回來
 ## 5. 海葵：觸手被生物推開，再彈回來
 ## 6. 水草、海葵超過上限：多的藏起來、顯示提示
-## 7. 沒有玩家生物：顯示提示、不會當掉
+## 7. 沒有玩家生物：顯示提示、不會當掉；玩家生物超過複雜度上限：不放進來、顯示提示
 ## 8. 離開生態缸：水流歸零
 ##
 ## 在命令列執行：
@@ -196,6 +196,10 @@ func _test_no_player() -> void:
 	tank.drop_food(Vector2(300, 300))
 	await _frames(5)
 	_expect(is_instance_valid(tank), "沒有玩家也不會當掉")
+	await _free(tank)
+	tank = await _spawn({"player_design": load(SNAKE), "max_complexity": 20})
+	await _frames(2)
+	_expect(tank.player == null and "太複雜" in tank.get_node("%HUD").call("get_message"), "蛇（26 點）超過上限 20：不放進來、顯示提示")
 	await _free(tank)
 
 

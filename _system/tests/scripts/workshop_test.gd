@@ -9,7 +9,8 @@ extends Node
 ## 7. 讀範例（塗鴉蛇）再存檔：用到的圖一起複製過去
 ## 8. 匯入圖片：太大的縮到 512，放進生物的資料夾，掛件顯示這張圖
 ## 9. 顏色、粗細形狀的編輯器：簡單模式、加顏色、選內建形狀
-## 10. 離開工坊：骨架開關回到原本的樣子
+## 10. 複雜度上限：顯示「複雜度 x / 上限」；超過上限的滑桿、新增被擋下來，按鈕變灰；本來就超過的只能往下減
+## 11. 離開工坊：骨架開關回到原本的樣子
 ##
 ## 測試會在 my_creature/ 建立 zz_workshop_test 開頭的資料夾，結束時刪掉。
 ##
@@ -40,6 +41,7 @@ func _ready() -> void:
 	await _test_copy_images()
 	await _test_import_image()
 	_test_color_and_curve()
+	await _test_complexity()
 
 	_workshop.queue_free()
 	await _frames(2)
@@ -197,6 +199,45 @@ func _test_color_and_curve() -> void:
 			preset.item_selected.emit(i)
 	_expect(curve.point_count == 2 and is_equal_approx(curve.sample(0.5), 1.0), "選「平均」：粗細全部一樣")
 	shapes.queue_free()
+
+
+func _test_complexity() -> void:
+	print("--- 複雜度上限 ---")
+	_workshop.call("_load_design", "res://example/creatures/octopus/design.tres")
+	await _frames(2)
+	var limit: int = _workshop.call("max_complexity")
+	var start: int = _workshop.call("design_complexity")
+	var label: Label = _workshop.get("_stats_label")
+	_expect(("複雜度 %d / %d" % [start, limit]) in label.text, "顯示「複雜度 %d / %d」" % [start, limit])
+	var slider: HSlider = _slider_of(_workshop.get("_body_editor"), "節數")
+	var segments: int = _design().body.segment_count
+	slider.value = segments + (limit - start) + 5
+	await _frames(1)
+	_expect(_design().body.segment_count == segments and int(slider.value) == segments, "節數拉到超過上限：擋下來，滑桿退回 %d" % segments)
+	_expect("超過上限" in (_workshop.get("_message") as Label).text, "說明為什麼不能改")
+	slider.value = segments + 2
+	await _frames(1)
+	_expect(_design().body.segment_count == segments + 2, "沒超過上限的改動照常（%d 節）" % (segments + 2))
+	var tentacles: Dictionary = _workshop.get("_lists")["tentacles"]
+	var tentacle_count: int = _design().tentacles.size()
+	_expect((tentacles.add as Button).disabled and "超過上限" in (tentacles.add as Button).tooltip_text, "觸手「＋」加了會超過上限：變灰、說明原因")
+	_expect(not ((_workshop.get("_lists")["eyes"].add) as Button).disabled, "眼睛「＋」加了還在上限內：可以按")
+	_workshop.call("_change_list", "tentacles", "add")
+	await _frames(1)
+	_expect(_design().tentacles.size() == tentacle_count and _workshop.call("design_complexity") <= limit, "硬按觸手「＋」也加不進去")
+
+	var heavy: CreatureDesign = CreatureDesign.from_data(_design().to_dict())
+	heavy.body.segment_count = 60
+	_workshop.call("use_design", heavy, "", "")
+	await _frames(2)
+	_expect("超過上限" in (_workshop.get("_message") as Label).text, "讀到超過上限的設計檔：提示要減少零件")
+	slider = _slider_of(_workshop.get("_body_editor"), "節數")
+	slider.value = 50
+	await _frames(1)
+	_expect(_design().body.segment_count == 50, "本來就超過上限：往下減可以（60 → 50 節）")
+	slider.value = 55
+	await _frames(1)
+	_expect(_design().body.segment_count == 50, "本來就超過上限：再加回去不行")
 
 
 # ---------------------------------------------------------------- 工具

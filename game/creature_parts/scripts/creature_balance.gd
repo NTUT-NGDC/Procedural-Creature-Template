@@ -11,7 +11,10 @@ extends Resource
 ##   轉向＝基本轉向 ÷（1＋身體長度 × 長度對轉向的影響）（夾在上下限）
 ##   抓取範圍＝最長的觸手（有上限）
 ##   視野＝基本視野＋眼睛數量 × 眼睛大小 × 每顆眼睛的視野（有上限）
-##   升一級要吃幾個＝長大方式的成本 ×（1＋能力總和 × 能力對成本的影響）
+##   升一級要吃幾個＝長大方式的成本 ×（1＋能力總和 × 能力對成本的影響）×（1＋能力零件的複雜度 ÷ 上限 × 複雜度對成本的影響）
+##   複雜度＝身體節數 × 點數＋腳的數量 × 點數＋觸手節數 × 點數＋眼睛數量 × 點數＋掛件數量 × 點數
+##     （零件越多，每台電腦畫起來越重。工坊超過上限就不能再加；長大到上限就改成整隻放大；
+##       生態缸、對戰不收超過上限的生物。掛件算在上限裡，但不算進升級成本，因為掛件不會讓生物變強）
 ##
 ## 生態缸的規則（寫在 game/tank/scripts/tank_rules.gd）：
 ##   吃：頭咬到對方的「頭」（身體的前幾成），而且體型 ≥ 對方的「吃得掉的倍數」
@@ -72,6 +75,22 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(1, 50, 1) var cost_longer: int = 2
 ## 能力對成本的影響：四種能力（各 0～1）加起來 × 這個數字，再乘在基本成本上
 @export_range(0, 5, 0.05) var cost_per_power: float = 0.5
+## 複雜度對成本的影響：能力零件的複雜度 ÷ 上限 × 這個數字，再乘在基本成本上（零件越多越貴）
+@export_range(0, 5, 0.05) var cost_per_complexity: float = 0.5
+
+@export_group("複雜度")
+## 複雜度上限：一隻生物最多幾點。對戰時每台電腦要畫全部的生物，零件太多會拖慢所有人
+@export_range(20, 1000, 1) var max_complexity: int = 120
+## 身體每一節幾點
+@export_range(0, 20, 1) var points_per_body_segment: int = 1
+## 每隻腳幾點（「兩邊」的一組算 2 隻）
+@export_range(0, 50, 1) var points_per_foot: int = 6
+## 觸手每一節幾點（「兩邊」算 2 條）
+@export_range(0, 20, 1) var points_per_tentacle_segment: int = 1
+## 每顆眼睛幾點
+@export_range(0, 20, 1) var points_per_eye: int = 1
+## 每個掛件幾點（「兩邊」算 2 個）
+@export_range(0, 50, 1) var points_per_ornament: int = 2
 
 @export_group("飼料")
 ## 生態缸裡自己長出飼料的間隔（秒），0 是不會自己長。地圖越大、生物越多，要長得越快

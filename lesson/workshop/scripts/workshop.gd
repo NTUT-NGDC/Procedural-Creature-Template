@@ -3,6 +3,7 @@ extends Control
 ## 同時是「實驗室」：骨架一直開著，滑桿可以拉到極端值把生物弄壞，看規則在做什麼，再按「復原」拉回來。
 ##
 ## 左邊是水族箱（生物跟著滑鼠游）、左下是能力和代價、右邊是各零件的分頁。
+## 複雜度（零件越多越高）有上限（平衡資料的 max_complexity）：超過上限的改動會被擋下來。
 ## 右邊的控制項是照設計檔的欄位自動長出來的（part_editor.gd），中文名稱在 data/workshop_labels.tres。
 ## 這是社課工具，用 F6 執行，不會匯出。
 
@@ -20,6 +21,8 @@ const PANEL_WIDTH: float = 500.0
 const MOVE_MODES: PackedStringArray = ["跟著滑鼠", "自己游", "停住"]
 ## 工坊裡的水流強度（像素／秒）
 const WORKSHOP_FLOW: float = 12.0
+## 複雜度超過上限時，能力那幾行的顏色
+const COMPLEXITY_OVER_COLOR: Color = Color("#ff6b5e")
 
 ## 打開工坊時先讀哪一隻
 @export_file("*.tres") var start_design: String = "res://example/creatures/snake/design.tres"
@@ -56,6 +59,8 @@ var _lists: Dictionary = {}
 var _file_dialog: FileDialog
 var _confirm: ConfirmationDialog
 var _confirm_folder: String = ""
+## 設計檔現在的複雜度（0 級的樣子）：改動之後超過上限、又比這個多，就擋下來
+var _complexity: int = 0
 
 
 func _ready() -> void:
@@ -107,9 +112,12 @@ func use_design(new_design: CreatureDesign, image_folder: String, loaded_folder:
 	_level_label.text = "預覽等級 0"
 	_creature.level = 0
 	_creature.design = design
+	_complexity = design_complexity()
 	_rebuild_editors()
 	_reset_history()
 	_update_stats()
+	if _complexity > max_complexity():
+		_show_message("這隻生物的複雜度 %d 超過上限 %d，放不進生態缸：請減少腳、觸手、節數或掛件" % [_complexity, max_complexity()])
 
 
 ## 讀一份設計檔（複製一份來改，不會動到原本的檔案）
@@ -240,6 +248,7 @@ static func _safe_image_name(file: String) -> String:
 
 ## 任何控制項改了設計檔：生物馬上變樣子、能力重算，停下來一下就記一筆復原
 func _on_design_changed() -> void:
+	_complexity = design_complexity()
 	_creature.apply_design()
 	_update_stats()
 	_history_timer.start()
@@ -252,12 +261,44 @@ func _update_stats() -> void:
 		return
 	var balance: CreatureBalance = _creature.get_balance()
 	var mode_name: String = ["等比放大", "變長＋長出腳", "只變長"][design.growth_mode]
-	_stats_label.text = "速度 %s　轉向 %s\n抓取 %s　視野 %s\n體型 %d　%s　每升一級要吃 %d 個" % [
+	_stats_label.text = "速度 %s　轉向 %s\n抓取 %s　視野 %s\n體型 %d　%s　每升一級要吃 %d 個\n複雜度 %d / %d" % [
 		_stars(stats, "speed", balance), _stars(stats, "turn", balance), _stars(stats, "grab", balance), _stars(stats, "sight", balance),
-		roundi(stats.size), mode_name, stats.level_cost]
+		roundi(stats.size), mode_name, stats.level_cost, stats.complexity, balance.max_complexity]
+	_stats_label.add_theme_color_override("font_color", COMPLEXITY_OVER_COLOR if _complexity > balance.max_complexity else Color.WHITE)
 	_stats_label.tooltip_text = "速度 %d 像素／秒　轉向 %d 度／秒　抓取 %d 像素　視野 %d 像素" % [roundi(stats.speed), roundi(rad_to_deg(stats.turn)), roundi(stats.grab), roundi(stats.sight)]
 	for list_field: String in _lists:
 		_refresh_list_names(list_field)
+		_refresh_list_buttons(list_field)
+
+
+# ---------------------------------------------------------------- 複雜度
+
+
+func max_complexity() -> int:
+	return _creature.get_balance().max_complexity
+
+
+## 設計檔（0 級）的複雜度
+func design_complexity() -> int:
+	return CreatureStats.complexity_of(design, _creature.get_balance())
+
+
+## 控制項改之前問的：改完沒超過上限（或比原本少）就可以
+func _can_change() -> bool:
+	var after: int = design_complexity()
+	if after <= max_complexity() or after <= _complexity:
+		return true
+	_show_message("複雜度會變成 %d，超過上限 %d：先減少別的腳、觸手、節數或掛件" % [after, max_complexity()])
+	return false
+
+
+## 多加一個 part 之後的複雜度
+func _complexity_with(field: String, part: PartDesign) -> int:
+	var parts: Array = design.get(field)
+	parts.append(part)
+	var result: int = design_complexity()
+	parts.pop_back()
+	return result
 
 
 func _stars(stats: CreatureStats, ability: String, balance: CreatureBalance) -> String:
@@ -319,6 +360,7 @@ func _restore(snapshot: Dictionary) -> void:
 	design.from_dict(snapshot)
 	design.image_folder = folder
 	_name_edit.text = design.creature_name
+	_complexity = design_complexity()
 	_creature.apply_design()
 	_rebuild_editors()
 	_update_stats()
@@ -367,9 +409,39 @@ func _rebuild_list(field: String) -> void:
 		selector.select(list.selected)
 		editor.edit(parts[list.selected], LABELS)
 		list.empty_label.visible = false
+	_refresh_list_buttons(field)
+
+
+## 「新增」「複製」「刪除」能不能按：數量到上限、或加了會超過複雜度上限，就變灰並說明原因
+func _refresh_list_buttons(field: String) -> void:
+	var list: Dictionary = _lists[field]
+	var parts: Array = design.get(field)
+	var info: Array = _list_info(field)
+	var script: GDScript = info[2]
+	var full: bool = parts.size() >= list.max
+	var selected: PartDesign = parts[list.selected] if not parts.is_empty() else null
 	(list.remove as Button).disabled = parts.is_empty()
-	(list.duplicate as Button).disabled = parts.is_empty() or parts.size() >= list.max
-	(list.add as Button).disabled = parts.size() >= list.max
+	_set_add_button(list.add, full, _complexity_with(field, script.new()), "新增一個%s" % info[1])
+	_set_add_button(list.duplicate, full, _complexity_with(field, selected) if selected != null else 0, "複製選到的這個")
+	if selected == null:
+		(list.duplicate as Button).disabled = true
+
+
+## 「新增」「複製」：數量到上限、或加了之後超過複雜度上限就變灰，說明寫在滑鼠停上去的提示
+func _set_add_button(button: Button, full: bool, after: int, normal_tip: String) -> void:
+	var too_complex: bool = after > max_complexity()
+	button.disabled = full or too_complex
+	if full:
+		button.tooltip_text = "最多就這麼多了"
+	elif too_complex:
+		button.tooltip_text = "再加複雜度會變成 %d，超過上限 %d：先減少別的零件" % [after, max_complexity()]
+	else:
+		button.tooltip_text = normal_tip
+
+
+## 零件清單分頁的設定（找 field 那一項）
+func _list_info(field: String) -> Array:
+	return _list_infos().filter(func(info: Array) -> bool: return info[0] == field)[0]
 
 
 ## 選單上的名字，例如「1. 第 3 節・兩邊」
@@ -396,7 +468,7 @@ func _change_list(field: String, action: String) -> void:
 	var parts: Array = design.get(field)
 	match action:
 		"add":
-			var script: GDScript = _list_infos().filter(func(info: Array) -> bool: return info[0] == field)[0][2]
+			var script: GDScript = _list_info(field)[2]
 			parts.append(script.new())
 			list.selected = parts.size() - 1
 		"duplicate":
@@ -404,6 +476,9 @@ func _change_list(field: String, action: String) -> void:
 			list.selected = parts.size() - 1
 		"remove":
 			parts.remove_at(list.selected)
+	if action != "remove" and not _can_change():  # 按鈕灰掉時按不到；保險起見再檢查一次
+		parts.pop_back()
+		list.selected = maxi(parts.size() - 1, 0)
 	_rebuild_list(field)
 	_on_design_changed()
 
@@ -434,6 +509,7 @@ func _build_ui() -> void:
 	_tabs = TabContainer.new()
 	panel.add_child(_tabs)
 	_body_editor = PartEditor.new()
+	_body_editor.can_change = _can_change
 	_body_editor.changed.connect(_on_design_changed)
 	_add_tab("身體", _body_editor)
 	for info: Array in _list_infos():
@@ -570,6 +646,7 @@ func _build_list_tab(field: String, title: String, max_count: int) -> Control:
 	var empty := _text("還沒有%s，按「＋」新增一個" % title)
 	box.add_child(empty)
 	var editor := PartEditor.new()
+	editor.can_change = _can_change
 	editor.changed.connect(_on_design_changed)
 	editor.import_image_requested.connect(_on_import_requested)
 	box.add_child(editor)

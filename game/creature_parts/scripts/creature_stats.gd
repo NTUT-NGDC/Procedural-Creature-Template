@@ -19,6 +19,8 @@ var grab: float = 0.0
 var sight: float = 0.0
 ## 升一級要吃幾個
 var level_cost: int = 1
+## 複雜度（零件越多越高，上限在平衡資料的 max_complexity）
+var complexity: int = 0
 ## 四種能力各 0～1（除以上限），顯示星星、算成本用
 var ratios: Dictionary = {}
 
@@ -53,15 +55,38 @@ static func compute(shape: CreatureDesign, balance: CreatureBalance) -> Creature
 	var power: float = 0.0
 	for ratio: float in stats.ratios.values():
 		power += ratio
-	stats.level_cost = maxi(roundi(balance.growth_cost(shape.growth_mode) * (1.0 + power * balance.cost_per_power)), 1)
+	# 複雜度：零件越多越貴（掛件不算，掛件不會讓生物變強）
+	stats.complexity = complexity_of(shape, balance)
+	var parts: float = float(complexity_of(shape, balance, false)) / maxf(balance.max_complexity, 1.0)
+	stats.level_cost = maxi(roundi(balance.growth_cost(shape.growth_mode) * (1.0 + power * balance.cost_per_power) * (1.0 + parts * balance.cost_per_complexity)), 1)
 	return stats
+
+
+## 複雜度：每種零件的數量 × 平衡資料裡的點數，加起來。「兩邊」的零件算 2 個。
+## with_ornaments 是要不要算掛件（上限要算、升級成本不算）
+static func complexity_of(shape: CreatureDesign, balance: CreatureBalance, with_ornaments: bool = true) -> int:
+	var points: int = shape.body.segment_count * balance.points_per_body_segment
+	points += count_feet(shape) * balance.points_per_foot
+	for tentacle: TentacleDesign in shape.tentacles:
+		points += tentacle.segment_count * _copies(tentacle.side) * balance.points_per_tentacle_segment
+	for eyes: EyesDesign in shape.eyes:
+		points += eyes.count * balance.points_per_eye
+	if with_ornaments:
+		for ornament: OrnamentDesign in shape.ornaments:
+			points += _copies(ornament.side) * balance.points_per_ornament
+	return points
+
+
+## 「兩邊」是左右各一個，算 2 個
+static func _copies(side: int) -> int:
+	return 2 if side == CreaturePart.Side.BOTH else 1
 
 
 ## 腳的數量：「兩邊」的一組算 2 隻
 static func count_feet(shape: CreatureDesign) -> int:
 	var feet: int = 0
 	for leg: LegDesign in shape.legs:
-		feet += 2 if leg.side == CreaturePart.Side.BOTH else 1
+		feet += _copies(leg.side)
 	return feet
 
 
