@@ -1,0 +1,228 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/tank/scripts/tank.gd" id="1_tank"]
+[ext_resource type="Script" path="res://game/tank/scripts/tank_water.gd" id="2_water"]
+[ext_resource type="Script" path="res://game/tank/scripts/tank_hud.gd" id="3_hud"]
+[ext_resource type="PackedScene" path="res://game/pause_menu/pause_menu.tscn" id="4_pause"]
+[ext_resource type="Resource" path="res://example/creatures/snake/design.tres" id="5_snake"]
+[ext_resource type="Script" path="res://game/tank/scripts/weed.gd" id="6_weed"]
+[ext_resource type="Script" path="res://game/tank/scripts/anemone.gd" id="7_anemone"]
+
+[node name="Tank" type="Node2D"]
+script = ExtResource("1_tank")
+player_design = ExtResource("5_snake")
+
+[node name="Water" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_water")
+
+[node name="Plants" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Weed1" type="Node2D" parent="Plants"]
+position = Vector2(40, 692)
+script = ExtResource("6_weed")
+height = 150.0
+segment_count = 7
+lean = -0.053
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed2" type="Node2D" parent="Plants"]
+position = Vector2(95, 692)
+script = ExtResource("6_weed")
+height = 90.0
+segment_count = 4
+lean = 0.161
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed3" type="Node2D" parent="Plants"]
+position = Vector2(130, 692)
+script = ExtResource("6_weed")
+height = 90.0
+segment_count = 4
+lean = 0.041
+base_color = Color(0.13, 0.35, 0.3, 1)
+tip_color = Color(0.4, 0.7, 0.55, 1)
+
+[node name="Weed4" type="Node2D" parent="Plants"]
+position = Vector2(300, 692)
+script = ExtResource("6_weed")
+height = 220.0
+segment_count = 11
+lean = -0.231
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed5" type="Node2D" parent="Plants"]
+position = Vector2(335, 692)
+script = ExtResource("6_weed")
+height = 180.0
+segment_count = 9
+lean = -0.215
+base_color = Color(0.13, 0.35, 0.3, 1)
+tip_color = Color(0.4, 0.7, 0.55, 1)
+
+[node name="Weed6" type="Node2D" parent="Plants"]
+position = Vector2(470, 692)
+script = ExtResource("6_weed")
+height = 90.0
+segment_count = 4
+lean = -0.038
+base_color = Color(0.3, 0.42, 0.18, 1)
+tip_color = Color(0.72, 0.8, 0.4, 1)
+
+[node name="Weed7" type="Node2D" parent="Plants"]
+position = Vector2(640, 692)
+script = ExtResource("6_weed")
+height = 220.0
+segment_count = 11
+lean = 0.224
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed8" type="Node2D" parent="Plants"]
+position = Vector2(690, 692)
+script = ExtResource("6_weed")
+height = 220.0
+segment_count = 11
+lean = 0.039
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed9" type="Node2D" parent="Plants"]
+position = Vector2(820, 692)
+script = ExtResource("6_weed")
+height = 180.0
+segment_count = 9
+lean = 0.238
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed10" type="Node2D" parent="Plants"]
+position = Vector2(990, 692)
+script = ExtResource("6_weed")
+height = 90.0
+segment_count = 4
+lean = 0.179
+base_color = Color(0.3, 0.42, 0.18, 1)
+tip_color = Color(0.72, 0.8, 0.4, 1)
+
+[node name="Weed11" type="Node2D" parent="Plants"]
+position = Vector2(1030, 692)
+script = ExtResource("6_weed")
+height = 150.0
+segment_count = 7
+lean = -0.178
+base_color = Color(0.13, 0.35, 0.3, 1)
+tip_color = Color(0.4, 0.7, 0.55, 1)
+
+[node name="Weed12" type="Node2D" parent="Plants"]
+position = Vector2(1150, 692)
+script = ExtResource("6_weed")
+height = 90.0
+segment_count = 4
+lean = -0.096
+base_color = Color(0.3, 0.42, 0.18, 1)
+tip_color = Color(0.72, 0.8, 0.4, 1)
+
+[node name="Weed13" type="Node2D" parent="Plants"]
+position = Vector2(1190, 692)
+script = ExtResource("6_weed")
+height = 120.0
+segment_count = 6
+lean = 0.041
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed14" type="Node2D" parent="Plants"]
+position = Vector2(1240, 692)
+script = ExtResource("6_weed")
+height = 120.0
+segment_count = 6
+lean = -0.201
+base_color = Color(0.13, 0.35, 0.3, 1)
+tip_color = Color(0.4, 0.7, 0.55, 1)
+
+[node name="Anemone1" type="Node2D" parent="Plants"]
+position = Vector2(220, 692)
+script = ExtResource("7_anemone")
+arm_count = 10
+fan_angle = 3.49
+body_color = Color(0.76, 0.09, 0.36, 1)
+arm_base_color = Color(0.93, 0.25, 0.48, 1)
+arm_tip_color = Color(1, 0.82, 0.88, 1)
+
+[node name="Anemone2" type="Node2D" parent="Plants"]
+position = Vector2(900, 692)
+script = ExtResource("7_anemone")
+arm_count = 12
+fan_angle = 3.49
+body_color = Color(0.85, 0.45, 0.1, 1)
+arm_base_color = Color(0.98, 0.6, 0.2, 1)
+arm_tip_color = Color(1, 0.9, 0.6, 1)
+
+[node name="Anemone3" type="Node2D" parent="Plants"]
+position = Vector2(560, 668)
+script = ExtResource("7_anemone")
+arm_count = 14
+arm_length = 26.0
+body_radius = 12.0
+fan_angle = 6.2831855
+body_color = Color(0.45, 0.25, 0.65, 1)
+arm_base_color = Color(0.6, 0.4, 0.85, 1)
+arm_tip_color = Color(0.9, 0.85, 1, 1)
+
+[node name="Foods" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Creatures" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+layer = 10
+script = ExtResource("3_hud")
+
+[node name="Margin" type="MarginContainer" parent="HUD"]
+offset_right = 760.0
+offset_bottom = 140.0
+mouse_filter = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 22
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="NameLabel" type="Label" parent="HUD/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 33
+text = "生態缸"
+
+[node name="StatusLabel" type="Label" parent="HUD/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "等級 0"
+
+[node name="MessageLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.75, 0.4, 1)
+theme_override_font_sizes/font_size = 22
+text = "（提示文字）"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="PauseMenu" parent="." instance=ExtResource("4_pause")]

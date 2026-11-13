@@ -20,6 +20,8 @@ signal ate(food: Node)
 const MIN_LENGTH: int = 2
 ## 每隻生物一開始的長度（遊戲裡的長度＝這個數字＋等級，見 get_length()）
 const START_LENGTH: int = 10
+## 水流推生物的比例（生物自己會游，只被推一點點）
+const FLOW_DRIFT: float = 0.3
 
 ## 控制方式的編號，跟下面「控制方式」選單的順序一樣
 enum Mode { MOUSE, WASD, WANDER, CHASE, FLEE }
@@ -59,6 +61,8 @@ var velocity: Vector2 = Vector2.ZERO
 var heading: float = 0.0
 ## 成長等級：吃一次 +1、被咬一次 -N
 var level: int = 0
+## 這一級吃了幾個（有設計檔的生物，吃滿「升一級要吃幾個」就升級）
+var food_progress: int = 0
 
 ## 頭的碰撞區（執行時才建立）
 var head_area: Area2D
@@ -83,6 +87,7 @@ func _ready() -> void:
 	apply_design()
 	if Engine.is_editor_hint():
 		return
+	add_to_group("creature")  # 生態缸、水草用這個找所有生物
 	_wander_angle = heading
 	_update_player_group()
 	_create_head_area()
@@ -124,6 +129,7 @@ func _steer(target_angle: float, target_speed: float, delta: float) -> void:
 	_current_speed = lerpf(_current_speed, target_speed, 1.0 - exp(-8.0 * delta))
 	velocity = Vector2.from_angle(heading) * _current_speed
 	global_position += velocity * delta
+	global_position += WaterFlow.at(global_position) * FLOW_DRIFT * delta  # 被水流推一點點
 	var area: Rect2 = _get_screen_rect()
 	global_position = global_position.clamp(area.position, area.end)
 
@@ -202,12 +208,19 @@ func grow(amount: int = 1) -> void:
 	grew.emit(level)
 
 
-## 吃掉一個食物：通知食物「被吃了」（食物有 on_eaten() 的話），發出 ate，再長大 1
+## 吃掉一個食物：通知食物「被吃了」（食物有 on_eaten() 的話），發出 ate。
+## 有設計檔的生物：吃滿「升一級要吃幾個」才長大一級；沒有設計檔的：吃一個就長大 1
 func eat(food: Node) -> void:
 	if food.has_method("on_eaten"):
 		food.call("on_eaten", self)
 	ate.emit(food)
-	grow(1)
+	if shape == null:
+		grow(1)
+		return
+	food_progress += 1
+	if food_progress >= get_stats().level_cost:
+		food_progress = 0
+		grow(1)
 
 
 ## 換腳協調：另一組有腳在空中時回傳 false（group 這組的腳先等一下）。
@@ -251,7 +264,7 @@ func reset_pose() -> void:
 			node.call("reset_pose")
 
 
-## 設定所有碰撞區（頭、身體）的碰撞層和遮罩。池塘用這個區分玩家、天敵
+## 設定所有碰撞區（頭、身體）的碰撞層和遮罩
 func set_collision(layer: int, mask: int) -> void:
 	for node: Node in find_children("*", "Area2D", true, false):
 		var area: Area2D = node as Area2D
@@ -270,6 +283,7 @@ func apply_design() -> void:
 		shape = null
 		return
 	shape = CreatureGrowth.shape_at(design, level, get_balance())
+	_apply_abilities()
 	var structure: String = _design_structure()
 	if structure != _built_structure or not is_instance_valid(_built_body):
 		var pose: PackedVector2Array = _built_body.get_joints() if is_instance_valid(_built_body) else PackedVector2Array()
@@ -376,6 +390,15 @@ func _design_structure() -> String:
 		if part is OrnamentDesign:
 			text += "%d:%s," % [part.side, part.image_file]
 	return text
+
+
+## 有設計檔的生物：速度、轉向用能力計算的值，頭的大小跟身體第一節一樣粗
+func _apply_abilities() -> void:
+	var stats: CreatureStats = get_stats()
+	speed = stats.speed
+	turn_speed = stats.turn
+	var body: BodyDesign = shape.body
+	head_radius = maxf(body.thickness * (body.width_curve.sample(0.0) if body.width_curve != null else 1.0), 4.0)
 
 
 ## 平衡資料（沒有指定就用預設的）

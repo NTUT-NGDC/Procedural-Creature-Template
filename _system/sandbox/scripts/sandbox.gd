@@ -115,7 +115,7 @@ func _add_food(at: Vector2) -> void:
 	add_child(food)
 
 
-## 頭碰到食物就吃掉（池塘小遊戲裡是用碰撞區判斷，沙盒簡單算距離就好）
+## 頭碰到食物就吃掉（沙盒簡單算距離）
 func _eat_with_head() -> void:
 	for node: Node in get_tree().get_nodes_in_group("food"):
 		var food: Node2D = node as Node2D

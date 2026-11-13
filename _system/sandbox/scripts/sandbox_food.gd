@@ -1,6 +1,6 @@
 extends Node2D
 ## 沙盒用的簡單食物：一個黃色圓點，在 "food" 群組裡。被吃掉就消失。
-## （池塘小遊戲的正式食物在 T3 做）
+## （生態缸的正式飼料在 game/tank/scripts/food.gd）
 
 const RADIUS: float = 6.0
 

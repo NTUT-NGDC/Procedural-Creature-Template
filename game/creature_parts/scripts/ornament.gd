@@ -14,6 +14,8 @@ extends CreaturePart
 ## 形狀、動法的編號，跟選單的順序一樣
 enum Shape { NONE, CIRCLE, ELLIPSE, TRIANGLE, HORN, WING, FIN, LEAF, STAR, HEART }
 enum Motion { FIXED, FLAP, SPRING }
+## 水流推彈簧掛件的力道
+const FLOW_TURN: float = 0.3
 
 @export_group("掛載位置")
 ## 掛在身體的第幾節：0 是頭，-1 是最後一節
@@ -121,6 +123,7 @@ func update_spring(delta: float) -> void:
 	var error: float = angle_difference(target, _spring_angle)  # 現在偏了多少
 	var force: float = -spring_stiffness * spring_stiffness * error  # 回復力：偏越多拉越大力
 	var damping: float = -0.6 * spring_stiffness * _spring_velocity  # 阻力：越快擋越多
+	force += Vector2.from_angle(_spring_angle).cross(WaterFlow.at(global_position)) * FLOW_TURN  # 被水流推得轉一點
 	_spring_velocity += (force + damping) * delta
 	_spring_angle += _spring_velocity * delta
 

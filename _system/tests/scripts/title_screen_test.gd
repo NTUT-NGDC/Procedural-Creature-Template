@@ -1,11 +1,11 @@
 extends Node
 ## 標題畫面、音量設定、暫停選單的自動測試：
-## 1. 池塘場景欄位空的、找不到檔案、選到不是場景的檔案 → 顯示提示，不會換場景
+## 1. 玩家生物沒設定、生態缸場景找不到 → 顯示提示，不會換場景
 ## 2. 設定面板可以打開、關閉；電腦版看得到「離開遊戲」；標題音樂會自動播放、播完重播
 ## 3. 音量：調整後會存檔，重新讀取後音量和滑桿位置都對；拉到 0 是靜音
 ## 4. 暫停選單：打開時遊戲暫停、選單照常運作；繼續後解除暫停；按 Esc 也能打開；回到標題時已解除暫停
-## 5. 背景：池塘的玩家生物用「漫遊」在按鈕後面游；池塘場景有問題時不顯示、不會當掉
-## 6. 完整流程跑兩輪：標題 → 開始 → 池塘 → 贏 → 再來一場 → 輸 → 回標題
+## 5. 背景：玩家生物用「漫遊」在按鈕後面游；沒設定玩家生物時不顯示、不會當掉
+## 6. 完整流程跑兩輪：標題 → 開始 → 生態缸（玩家生物就是標題設定的那隻）→ 吃東西升級 → 暫停選單回標題
 ##
 ##
 ## 測試會暫時改掉 user://sound_settings.cfg，結束時還原。
@@ -16,16 +16,17 @@ extends Node
 const TITLE_SCENE: PackedScene = preload("res://game/title_screen/title_screen.tscn")
 const PAUSE_MENU_SCENE: PackedScene = preload("res://game/pause_menu/pause_menu.tscn")
 const TITLE_PATH: String = "res://game/title_screen/title_screen.tscn"
-const POND_PATH: String = "res://example/pond/pond.tscn"
+const TANK_PATH: String = "res://game/tank/tank.tscn"
+const SNAKE_DESIGN: String = "res://example/creatures/snake/design.tres"
 const TIMEOUT_SECONDS: float = 10.0
 
 var _failures: int = 0
 
 
 func _ready() -> void:
-	await _test_problem("", "還沒有設定池塘場景")
-	await _test_problem("res://my_creature/不存在的場景.tscn", "找不到池塘場景")
-	await _test_problem("res://lesson/card_draw/data/card_deck.tres", "不是場景")
+	await _test_problem("player_design", null, "還沒有設定玩家生物")
+	await _test_problem("tank_scene", "res://my_creature/不存在的場景.tscn", "找不到生態缸場景")
+	await _test_problem("tank_scene", "res://lesson/card_draw/data/card_deck.tres", "找不到生態缸場景")
 	await _test_settings_panel()
 	await _test_title_music()
 	await _test_sound_settings()
@@ -41,10 +42,10 @@ func _ready() -> void:
 		get_tree().quit(1)
 
 
-func _test_problem(path: String, expected_text: String) -> void:
-	print("--- 池塘場景設成「%s」 ---" % path)
+func _test_problem(property: String, value: Variant, expected_text: String) -> void:
+	print("--- %s 設成「%s」 ---" % [property, value])
 	var title: Control = TITLE_SCENE.instantiate()
-	title.set("pond_scene", path)
+	title.set(property, value)
 	add_child(title)
 	await get_tree().process_frame
 
@@ -145,7 +146,7 @@ func _test_sound_settings() -> void:
 func _test_pause_menu() -> void:
 	print("--- 暫停選單 ---")
 	var game := Node.new()
-	game.name = "FakePond"
+	game.name = "FakeGame"
 	var counter := _FrameCounter.new()
 	game.add_child(counter)
 	var menu: CanvasLayer = PAUSE_MENU_SCENE.instantiate()
@@ -219,8 +220,8 @@ func _test_background_creature() -> void:
 	add_child(title)
 	await get_tree().process_frame
 	var creature: Creature = title.get_node_or_null("BackgroundCreature") as Creature
-	_expect(creature != null, "背景有一隻生物（池塘的玩家生物）")
-	_expect(creature != null and creature.get_meta("source_example", "") == "snake", "是範例池塘設定的蛇")
+	_expect(creature != null, "背景有一隻生物（玩家生物）")
+	_expect(creature != null and creature.design != null and creature.design.resource_path == SNAKE_DESIGN, "是標題畫面設定的蛇（設計檔）")
 	_expect(creature != null and creature.control_mode == Creature.Mode.WANDER and not creature.is_in_group("player"), "用「漫遊」游，不算玩家")
 	_expect(creature != null and creature.get_index() < (title.get_node("Margin") as Control).get_index(), "在按鈕的下面")
 	var start: Vector2 = creature.global_position if creature != null else Vector2.ZERO
@@ -230,19 +231,18 @@ func _test_background_creature() -> void:
 	title.queue_free()
 	await get_tree().process_frame
 
-	for path: String in ["", "res://my_creature/不存在的場景.tscn", "res://lesson/card_draw/data/card_deck.tres"]:
-		title = TITLE_SCENE.instantiate()
-		title.set("pond_scene", path)
-		add_child(title)
-		await get_tree().process_frame
-		_expect(title.get_node_or_null("BackgroundCreature") == null, "池塘場景是「%s」：不顯示背景生物、不會當掉" % path)
-		title.queue_free()
-		await get_tree().process_frame
+	title = TITLE_SCENE.instantiate()
+	title.set("player_design", null)
+	add_child(title)
+	await get_tree().process_frame
+	_expect(title.get_node_or_null("BackgroundCreature") == null, "沒設定玩家生物：不顯示背景生物、不會當掉")
+	title.queue_free()
+	await get_tree().process_frame
 
 
 ## 用真正的換場景流程跑：把標題畫面設成目前的場景，這個測試節點留在旁邊不會被換掉
 func _test_full_flow() -> void:
-	print("--- 標題 → 池塘 → 結算 → 回標題，跑兩輪 ---")
+	print("--- 標題 → 生態缸 → 回標題，跑兩輪 ---")
 	get_tree().paused = false
 	var title: Control = TITLE_SCENE.instantiate()
 	get_tree().root.add_child.call_deferred(title)
@@ -251,23 +251,18 @@ func _test_full_flow() -> void:
 
 	for round_number: int in [1, 2]:
 		(get_tree().current_scene.get_node("%StartButton") as Button).pressed.emit()
-		_expect(await _wait_until(func() -> bool: return _current_scene_path() == POND_PATH), "第 %d 輪：按開始換到池塘" % round_number)
-		var pond: Pond = get_tree().current_scene as Pond
+		_expect(await _wait_until(func() -> bool: return _current_scene_path() == TANK_PATH), "第 %d 輪：按開始換到生態缸" % round_number)
+		var tank: Tank = get_tree().current_scene as Tank
 		await get_tree().process_frame
-		var won: Array[bool] = []
-		pond.game_over.connect(func(result: bool) -> void: won.append(result))
-		# 贏一場：一直吃到長度 20
-		for i: int in 10:
-			var player: Creature = pond.get("_player")
-			player.eat(pond.get_node("%Foods").get_child(0))
-		await get_tree().process_frame
-		_expect(won == [true], "第 %d 輪：長到 20 贏了" % round_number)
-		# 再來一場，這次被咬到輸
-		(pond.get_node("%RestartButton") as Button).pressed.emit()
-		await get_tree().process_frame
-		(pond.get("_player") as Creature).shrink(8)
-		await get_tree().process_frame
-		_expect(won == [true, false], "第 %d 輪：再來一場，長度剩 2 輸了" % round_number)
-		(pond.get_node("%TitleButton") as Button).pressed.emit()
-		_expect(await _wait_until(func() -> bool: return _current_scene_path() == TITLE_PATH), "第 %d 輪：按回標題回到標題畫面" % round_number)
-		_expect(not get_tree().paused, "第 %d 輪：回到標題時已解除暫停" % round_number)
+		_expect(tank.player != null and tank.player.design != null and tank.player.design.resource_path == SNAKE_DESIGN, "第 %d 輪：生態缸裡是標題畫面設定的蛇" % round_number)
+		# 吃滿一級
+		var cost: int = tank.player.get_stats().level_cost
+		for i: int in cost:
+			tank.drop_food(tank.player.global_position)
+		for i: int in 3:
+			await get_tree().process_frame
+		_expect(tank.player.level == 1, "第 %d 輪：吃 %d 個升到 1 級" % [round_number, cost])
+		(tank.get_node("PauseMenu/%MenuButton") as Button).pressed.emit()
+		(tank.get_node("PauseMenu/%TitleButton") as Button).pressed.emit()
+		_expect(await _wait_until(func() -> bool: return _current_scene_path() == TITLE_PATH), "第 %d 輪：從暫停選單回到標題畫面" % round_number)
+		_expect(not get_tree().paused and WaterFlow.strength == 0.0, "第 %d 輪：回到標題時已解除暫停、水流歸零" % round_number)

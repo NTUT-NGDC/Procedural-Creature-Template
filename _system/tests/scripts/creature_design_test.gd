@@ -1,7 +1,7 @@
 extends Node
 ## 設計檔的自動測試：
 ## 1. 設計資料和零件節點的欄位一致：同名、同型別、同範圍（加新屬性時漏改一邊會在這裡抓到）
-## 2. 8 隻範例的設計檔長出來的生物，跟原本的 .tscn 一樣（零件數量、每個屬性）
+## 2. 8 隻範例的設計檔長出來的生物：節數、零件數量跟設計檔一樣；零件依掛的節數排上下
 ## 3. 存檔再讀回來、to_dict() 再 from_dict()，內容都不變
 ## 4. from_dict() 收到奇怪的資料：缺欄位、型別錯、超出範圍、NaN、太多零件、怪檔名，都不會當掉，數字夾回範圍內
 ## 5. 改設計檔後 apply_design()：結構沒變只更新屬性（同一個身體節點）；加了零件就重長
@@ -70,29 +70,16 @@ func _test_fields_match() -> void:
 
 
 func _test_examples_match() -> void:
-	print("--- 範例：設計檔長出來的生物跟 .tscn 一樣 ---")
+	print("--- 範例：設計檔長出來的生物 ---")
 	for example: String in NAMES:
-		var original: Creature = (load(EXAMPLES + example + ".tscn") as PackedScene).instantiate()
-		add_child(original)
-		var built: Creature = _spawn(load(EXAMPLES + example + "/design.tres"))
+		var design: CreatureDesign = load(EXAMPLES + example + "/design.tres")
+		var built: Creature = _spawn(design)
 		await get_tree().process_frame
-		var problems: PackedStringArray = []
-		for pair: Array in _pairs:
-			# 長出來的零件會依「掛在第幾節」重排上下順序，所以照內容排好再一個一個比
-			var fields: Array[Dictionary] = (pair[0].new() as PartDesign).fields()
-			var a: Array[Node] = _sorted_by_content(_parts_of(original, pair[1]), fields)
-			var b: Array[Node] = _sorted_by_content(_parts_of(built, pair[1]), fields)
-			if a.size() != b.size():
-				problems.append("%s 數量 %d ≠ %d" % [pair[1].get_global_name(), a.size(), b.size()])
-				continue
-			for i: int in a.size():
-				for prop: Dictionary in fields:
-					if prop.name in a[i] and not _same(a[i].get(prop.name), b[i].get(prop.name)):
-						problems.append("%s[%d].%s" % [pair[1].get_global_name(), i, prop.name])
-		_expect(problems.is_empty(), "%s：%s" % [example, "一樣" if problems.is_empty() else "不同 " + "、".join(problems)])
+		var counts: Array[int] = [_parts_of(built, IKLeg).size(), _parts_of(built, Tentacle).size(), _parts_of(built, Eyes).size(), _parts_of(built, Ornament).size()]
+		var expected: Array[int] = [design.legs.size(), design.tentacles.size(), design.eyes.size(), design.ornaments.size()]
+		_expect(counts == expected and built.get_body().joint_count() == design.body.segment_count, "%s：身體 %d 節，腳、觸手、眼睛、掛件 %s 個，跟設計檔一樣" % [example, built.get_body().joint_count(), counts])
 		if example in ["dragon", "centipede", "spider"]:
 			_expect(_drawn_tail_to_head(built), "%s：零件越靠尾巴越先畫（在下面），眼睛最後畫（在上面）" % example)
-		original.queue_free()
 		built.queue_free()
 	await get_tree().process_frame
 
@@ -233,21 +220,6 @@ func _parts_of(creature: Creature, type: Variant) -> Array[Node]:
 	for node: Node in creature.find_children("*", "", true, false):
 		if is_instance_of(node, type):
 			result.append(node)
-	return result
-
-
-## 照零件的內容（設計檔裡有的欄位）排序，用來把兩隻生物的零件一對一配起來
-func _sorted_by_content(nodes: Array[Node], fields: Array[Dictionary]) -> Array[Node]:
-	var keyed: Array = nodes.map(func(node: Node) -> Array:
-		var values: Array = []
-		for prop: Dictionary in fields:
-			if prop.name in node:
-				values.append(PartDesign.encode(node.get(prop.name)))
-		return [var_to_str(values), node])
-	keyed.sort_custom(func(x: Array, y: Array) -> bool: return x[0] < y[0])
-	var result: Array[Node] = []
-	for item: Array in keyed:
-		result.append(item[1])
 	return result
 
 

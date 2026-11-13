@@ -18,6 +18,8 @@ const MAX_IMAGE_SIZE: int = 512
 const MAX_PREVIEW_LEVEL: int = 10
 const PANEL_WIDTH: float = 500.0
 const MOVE_MODES: PackedStringArray = ["跟著滑鼠", "自己游", "停住"]
+## 工坊裡的水流強度（像素／秒）
+const WORKSHOP_FLOW: float = 12.0
 
 ## 打開工坊時先讀哪一隻
 @export_file("*.tres") var start_design: String = "res://example/creatures/snake/design.tres"
@@ -63,6 +65,7 @@ func _ready() -> void:
 	if debug != null:
 		_old_show_bones = debug.get("show_bones")
 		debug.set("show_bones", true)  # 實驗室：骨架一直開著
+	WaterFlow.strength = WORKSHOP_FLOW  # 一點點水流，看得到觸手、掛件晃
 	_history_timer = Timer.new()
 	_history_timer.one_shot = true
 	_history_timer.wait_time = HISTORY_DELAY
@@ -74,6 +77,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	WaterFlow.reset()
 	var debug: Node = get_node_or_null("/root/Debug")
 	if debug != null:
 		debug.set("show_bones", _old_show_bones)
@@ -241,13 +245,11 @@ func _on_design_changed() -> void:
 	_history_timer.start()
 
 
-## 能力和代價。生物的速度、轉向直接用算出來的能力，邊調邊感受得到
+## 能力和代價（生物的速度、轉向本來就用算出來的能力，邊調邊感受得到）
 func _update_stats() -> void:
 	var stats: CreatureStats = _creature.get_stats()
 	if stats == null:
 		return
-	_creature.speed = stats.speed
-	_creature.turn_speed = stats.turn
 	var balance: CreatureBalance = _creature.get_balance()
 	var mode_name: String = ["等比放大", "變長＋長出腳", "只變長"][design.growth_mode]
 	_stats_label.text = "速度 %s　轉向 %s\n抓取 %s　視野 %s\n體型 %d　%s　每升一級要吃 %d 個" % [

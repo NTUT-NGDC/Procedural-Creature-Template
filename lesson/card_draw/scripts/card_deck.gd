@@ -7,7 +7,7 @@ extends Resource
 
 ## 身體卡（要組出什麼生物），一行一張
 @export_multiline var bodies: String = ""
-## 棲地卡（池塘要布置成什麼地方），一行一張
+## 棲地卡（生態缸要布置成什麼地方），一行一張
 @export_multiline var habitats: String = ""
 ## 規則卡（要改哪一條遊戲規則），一行一張。行首加 ★ 的是進階卡（要寫一點程式）
 @export_multiline var rules: String = ""

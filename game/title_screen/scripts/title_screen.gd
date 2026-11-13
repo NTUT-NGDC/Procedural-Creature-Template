@@ -9,15 +9,17 @@ extends Control
 ##   ・字的大小、顏色、字型：各節點的 Theme Overrides
 ##   ・背景圖：把圖片拖進 BackgroundImage 的 Texture
 ##
-## 背景會有一隻生物在游：就是池塘場景裡設定的「玩家生物」，用「漫遊」的方式游。
-## 換成自己的池塘，背景就會變成自己的生物（標題畫面就是作品的展示）。
+## 背景會有一隻生物在游：就是下面「玩家生物」設定的設計檔，用「漫遊」的方式游。
+## 換成自己的生物，背景就會變成自己的生物（標題畫面就是作品的展示）。
 ##
 ## 點最上層的 TitleScreen 節點，在檢查器設定：
-##   ・Pond Scene：把自己的池塘場景（.tscn）從檔案系統拖進來
+##   ・Player Design：把自己的設計檔（my_creature/你的資料夾/design.tres）從檔案系統拖進來
 ##   ・Title Music：把標題畫面的背景音樂拖進來（空著就沒有音樂）
 
-## 按「開始遊戲」後要換到的池塘場景（.tscn）
-@export_file("*.tscn") var pond_scene: String = "res://example/pond/pond.tscn"
+## 玩家生物：你的設計檔（design.tres）。按「開始遊戲」後，生態缸裡游的就是這隻
+@export var player_design: CreatureDesign
+## 按「開始遊戲」後要換到的生態缸場景（社長維護，不用改）
+@export_file("*.tscn") var tank_scene: String = "res://game/tank/tank.tscn"
 ## 標題畫面的背景音樂（.mp3、.ogg、.wav），空著就沒有音樂。
 ## 音量跟著設定裡的「音樂」滑桿，播完會從頭再播
 @export var title_music: AudioStream
@@ -44,34 +46,17 @@ func _ready() -> void:
 	_show_background_creature()
 
 
-## 讓池塘的「玩家生物」在背景用「漫遊」游來游去。讀不到就不顯示
+## 讓「玩家生物」在背景用「漫遊」游來游去。沒有設定就不顯示
 func _show_background_creature() -> void:
-	if _check_pond_scene() != "":
+	if player_design == null:
 		return
-	var creature_scene: PackedScene = _find_property(load(pond_scene) as PackedScene, &"player_creature") as PackedScene
-	if creature_scene == null:
-		return
-	var creature: Node = creature_scene.instantiate()
-	if not creature is Creature:
-		creature.queue_free()
-		return
-	(creature as Creature).control_mode = Creature.Mode.WANDER
-	(creature as Creature).position = get_viewport_rect().get_center()
+	var creature := Creature.new()
+	creature.design = player_design
+	creature.control_mode = Creature.Mode.WANDER
+	creature.position = get_viewport_rect().get_center()
 	creature.name = "BackgroundCreature"
 	add_child(creature)
 	move_child(creature, $BackgroundImage.get_index() + 1)  # 在背景圖上面、按鈕下面
-
-
-## 不實例化整個場景，直接從場景檔讀最上層節點的某個屬性。
-## 場景是複製別的場景改的（繼承）時，自己沒改過的屬性要到原本的場景找
-static func _find_property(scene: PackedScene, property: StringName) -> Variant:
-	if scene == null:
-		return null
-	var state: SceneState = scene.get_state()
-	for i: int in state.get_node_property_count(0):
-		if state.get_node_property_name(0, i) == property:
-			return state.get_node_property_value(0, i)
-	return _find_property(state.get_node_instance(0), property)
 
 
 ## 有設定標題音樂就播放：建立一個播放器，接到 Music 匯流排（設定裡的「音樂」滑桿管得到）
@@ -95,27 +80,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## 開始遊戲：產生生態缸，把玩家生物的設計檔交給它，再換過去
 func _on_start_pressed() -> void:
-	var problem: String = _check_pond_scene()
+	var problem: String = _check_setup()
 	if problem != "":
 		_message_label.text = problem
 		_message_label.show()
 		return
-	get_tree().change_scene_to_file(pond_scene)
+	var tank: Node = (load(tank_scene) as PackedScene).instantiate()
+	tank.set("player_design", player_design)
+	get_tree().change_scene_to_node(tank)
 
 
-## 回傳空字串代表池塘場景沒問題，否則回傳要顯示給社員看的說明
-func _check_pond_scene() -> String:
-	if pond_scene == "":
-		return "還沒有設定池塘場景。\n請點選 TitleScreen 節點，把你的池塘場景（.tscn）拖進檢查器的「Pond Scene」。"
-
-	# 拖檔案進欄位時，路徑可能會存成 uid://… 的格式，這裡轉回一般路徑方便閱讀
-	var readable_path: String = pond_scene
-	if pond_scene.begins_with("uid://"):
-		readable_path = ResourceUID.ensure_path(pond_scene)
-
-	if not ResourceLoader.exists(pond_scene):
-		return "找不到池塘場景：%s\n請重新把你的池塘場景拖進 TitleScreen 的「Pond Scene」。" % readable_path
-	if not load(pond_scene) is PackedScene:
-		return "這個檔案不是場景：%s\n「Pond Scene」要選 .tscn 結尾的場景檔。" % readable_path
+## 回傳空字串代表設定沒問題，否則回傳要顯示給社員看的說明
+func _check_setup() -> String:
+	if player_design == null:
+		return "還沒有設定玩家生物。\n請點選 TitleScreen 節點，把你的 design.tres 拖進檢查器的「Player Design」。"
+	if tank_scene == "" or not ResourceLoader.exists(tank_scene) or not load(tank_scene) is PackedScene:
+		return "找不到生態缸場景：%s" % tank_scene
 	return ""

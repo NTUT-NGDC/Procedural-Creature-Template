@@ -10,6 +10,8 @@ extends CreaturePart
 
 ## 行為的編號，跟「行為」選單的順序一樣
 enum Behavior { DRAG, WAVE, POINT_MOUSE, GRAB_FOOD }
+## 水流推觸手的力道（往後拖的時候）
+const FLOW_PUSH: float = 2.0
 
 @export_group("掛載位置")
 ## 掛在身體的第幾節：0 是頭，-1 是最後一節（尾巴）
@@ -134,6 +136,7 @@ func drag(chain: PackedVector2Array, base: Vector2, side_sign: float, delta: flo
 	chain[0] = base
 	for i: int in range(1, chain.size()):
 		chain[i] = chain[i].lerp(_rest_point(side_sign, i), pull)  # 慢慢回到伸出角度（加上晃動）
+		chain[i] += WaterFlow.at(chain[i]) * FLOW_PUSH * delta * i / chain.size()  # 被水流推，越末端推越多
 		chain[i] = chain[i - 1] + chain[i - 1].direction_to(chain[i]) * seg_len  # 拉到剛好一節的距離
 	return chain
 

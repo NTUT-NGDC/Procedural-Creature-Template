@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/title_screen/scripts/title_screen.gd" id="1_script"]
 [ext_resource type="Script" path="res://game/sound_settings/scripts/volume_slider.gd" id="2_slider"]
+[ext_resource type="Resource" path="res://example/creatures/snake/design.tres" id="3_design"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 content_margin_left = 44.0
@@ -22,6 +23,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
+player_design = ExtResource("3_design")
 
 [node name="BackgroundColor" type="ColorRect" parent="." unique_id=2033522653]
 layout_mode = 1

@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="CreatureDesign" format=3]
+[gd_resource type="Resource" script_class="CreatureDesign" format=3 uid="uid://qyjm1e0mysug"]
 
-[ext_resource type="Script" path="res://game/creature_parts/scripts/body_design.gd" id="1_t4rov"]
-[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_ltn5a"]
-[ext_resource type="Script" path="res://game/creature_parts/scripts/leg_design.gd" id="3_nx7ah"]
-[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_7du6m"]
-[ext_resource type="Script" path="res://game/creature_parts/scripts/creature_design.gd" id="5_eyxsg"]
-[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_o2mlh"]
+[ext_resource type="Script" uid="uid://b873nuhby6g3e" path="res://game/creature_parts/scripts/body_design.gd" id="1_t4rov"]
+[ext_resource type="Script" uid="uid://cn0ljeabka0ty" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_ltn5a"]
+[ext_resource type="Script" uid="uid://c4h001uiua6ym" path="res://game/creature_parts/scripts/leg_design.gd" id="3_nx7ah"]
+[ext_resource type="Script" uid="uid://csa5by83tyx5h" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_7du6m"]
+[ext_resource type="Script" uid="uid://cmilddg5k2638" path="res://game/creature_parts/scripts/creature_design.gd" id="5_eyxsg"]
+[ext_resource type="Script" uid="uid://enbdef03neq1" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_o2mlh"]
 
 [sub_resource type="Gradient" id="Gradient_moji8"]
 offsets = PackedFloat32Array(0)
