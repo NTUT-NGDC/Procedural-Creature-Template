@@ -12,6 +12,11 @@ extends Resource
 ##   抓取範圍＝最長的觸手（有上限）
 ##   視野＝基本視野＋眼睛數量 × 眼睛大小 × 每顆眼睛的視野（有上限）
 ##   升一級要吃幾個＝長大方式的成本 ×（1＋能力總和 × 能力對成本的影響）
+##
+## 生態缸的規則（寫在 game/tank/scripts/tank_rules.gd）：
+##   吃：頭咬到對方的「頭」（身體的前幾成），而且體型 ≥ 對方的「吃得掉的倍數」
+##   撞：頭撞到別人的「身體」（頭以外的部分），不管誰大，自己扣「對方的等級」級（最少 1 級）
+##   被吃掉、被撞掉的每一級，掉「每級掉幾個飼料」個飼料
 
 ## 預設的平衡資料
 const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
@@ -67,6 +72,28 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(1, 50, 1) var cost_longer: int = 2
 ## 能力對成本的影響：四種能力（各 0～1）加起來 × 這個數字，再乘在基本成本上
 @export_range(0, 5, 0.05) var cost_per_power: float = 0.5
+
+@export_group("大吃小")
+## 吃得掉的倍數：體型至少是對方的幾倍才吃得掉（差不多大的碰到會彈開）
+@export_range(1.0, 3.0, 0.05) var eat_ratio: float = 1.2
+## 「頭」佔身體的前幾成：咬到這裡算咬頭（吃得掉），後面算身體（撞到會扣級）
+@export_range(0.05, 1.0, 0.05) var head_zone: float = 0.25
+## 被吃掉、被撞掉的每一級，掉幾個飼料
+@export_range(0, 20, 1) var food_per_level: int = 2
+## 一次最多掉幾個飼料（太多網頁版會卡）
+@export_range(1, 200, 1) var max_drop_food: int = 30
+## 撞到時彈開的速度（像素／秒）
+@export_range(0, 2000, 10) var bounce_speed: float = 350.0
+## 撞到別人身體之後，幾秒內不會再被撞、被吃
+@export_range(0, 10, 0.1) var hit_invincible: float = 1.0
+## 被吃掉重生之後，幾秒內不會被撞、被吃
+@export_range(0, 10, 0.1) var respawn_invincible: float = 2.0
+
+@export_group("加速")
+## 加速時速度變成幾倍
+@export_range(1.0, 4.0, 0.05) var boost_speed: float = 1.8
+## 加速時每秒消耗幾個「這一級吃到一半的飼料」（消耗的會掉在身後）
+@export_range(0.1, 20, 0.1) var boost_cost: float = 2.0
 
 @export_group("星星")
 ## 能力顯示成幾顆星（1～這個數字）

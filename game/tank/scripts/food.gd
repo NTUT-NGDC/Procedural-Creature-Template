@@ -17,17 +17,25 @@ var floor_y: float = 690.0
 ## 左右的範圍（全局 x），飄出去會被擋回來
 var min_x: float = 0.0
 var max_x: float = 1280.0
+## 幾秒之後才能吃（生物掉出來的飼料，不然撞到的那隻馬上又吃回去）
+var wait: float = 0.0
 
 var _time: float = 0.0
 
 
 func _ready() -> void:
-	add_to_group("food")
+	if wait <= 0.0:
+		add_to_group("food")  # 生態缸、觸手用這個群組找能吃的飼料
 	_time = randf() * 10.0
 
 
 func _process(delta: float) -> void:
 	_time += delta
+	if wait > 0.0:
+		wait -= delta
+		if wait <= 0.0:
+			add_to_group("food")
+	modulate.a = 0.5 if wait > 0.0 else 1.0  # 還不能吃：淡一點
 	if global_position.y < floor_y:
 		# 在水裡：往下沉、被水流帶著走
 		global_position += (WaterFlow.at(global_position) * FLOW_FOLLOW + Vector2(0, SINK_SPEED)) * delta

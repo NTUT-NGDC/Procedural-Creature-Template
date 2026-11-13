@@ -15,6 +15,8 @@ signal hurt()
 signal died()
 ## 吃掉一個食物時發出（用頭吃、用觸手抓都算），在 grew 之前
 signal ate(food: Node)
+## 加速消耗了一個飼料時發出，at 是身體尾端（生態缸在這裡放一個飼料）
+signal boost_spent(at: Vector2)
 
 ## 長度最少是多少，到這裡就算死掉
 const MIN_LENGTH: int = 2
@@ -25,6 +27,8 @@ const FLOW_DRIFT: float = 0.3
 
 ## 控制方式的編號，跟下面「控制方式」選單的順序一樣
 enum Mode { MOUSE, WASD, WANDER }
+## 生態缸裡給玩家看的標記：DANGER 能吃你（眼睛變紅）、PREY 你能吃牠（外框變綠）
+enum Mark { NONE, DANGER, PREY }
 
 ## 設計檔：拖一份 design.tres 進來，身體和零件會自己長出來（不用自己加節點）。
 ## 自己長出來的節點不會存進場景檔，改了設計檔就會跟著變
@@ -70,12 +74,24 @@ var _current_speed: float = 0.0
 ## 漫遊：多久之後換方向、要往哪個方向
 var _wander_timer: float = 0.0
 var _wander_angle: float = 0.0
+## 生態缸裡給玩家看的標記（Mark）：眼睛、身體會照這個換顏色
+var mark: int = Mark.NONE
+## 無敵還剩幾秒：不會被撞、被吃，身體一閃一閃
+var invincible_time: float = 0.0
+## 被彈開的速度（像素／秒），會慢慢變小
+var knockback: Vector2 = Vector2.ZERO
+## 這一幀有沒有在加速
+var boosting: bool = false
+## 加速累積消耗了多少飼料（滿 1 個就真的扣掉一個）
+var _boost_spent: float = 0.0
 ## 可以游的範圍（全局座標）。空的就是畫面範圍；生態缸會設成整張地圖
 var bounds: Rect2 = Rect2()
 ## 平衡資料：體型、能力的係數。空的就用預設的 balance.tres
 var balance: CreatureBalance
 ## 現在的形狀：設計檔照現在的等級長大後的樣子（CreatureGrowth.shape_at() 的結果）。沒有設計檔是 null
 var shape: CreatureDesign
+## 現在的能力（apply_design() 時算好）
+var _stats: CreatureStats
 ## 依設計檔長出來的節點：身體、零件（順序跟 shape.all_parts() 一樣）
 var _built_body: ChainBody
 var _built_parts: Array[Node] = []
@@ -98,10 +114,12 @@ func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 	var target: Dictionary = _get_move_target()
-	_steer(target.angle, target.speed, delta)
+	_update_boost(target.get("boost", false), delta)
+	_steer(target.angle, target.speed * (get_balance().boost_speed if boosting else 1.0), delta)
+	_update_invincible(delta)
 
 
-## 回傳這一幀想往哪個角度走、想走多快：{"angle": 弧度, "speed": 像素／秒}
+## 回傳這一幀想往哪個角度走、想走多快、要不要加速：{"angle": 弧度, "speed": 像素／秒, "boost": 要不要加速}
 func _get_move_target() -> Dictionary:
 	match control_mode:
 		Mode.MOUSE:
@@ -110,10 +128,10 @@ func _get_move_target() -> Dictionary:
 			if to_mouse.length() < head_radius:
 				return {"angle": heading, "speed": 0.0}
 			# 離滑鼠越近走越慢，不然會在滑鼠旁邊一直繞圈
-			return {"angle": to_mouse.angle(), "speed": speed * clampf((to_mouse.length() - head_radius) / 80.0, 0.0, 1.0)}
+			return {"angle": to_mouse.angle(), "speed": speed * clampf((to_mouse.length() - head_radius) / 80.0, 0.0, 1.0), "boost": _read_boost()}
 		Mode.WASD:
 			var input: Vector2 = _read_wasd()
-			return {"angle": input.angle() if input != Vector2.ZERO else heading, "speed": speed if input != Vector2.ZERO else 0.0}
+			return {"angle": input.angle() if input != Vector2.ZERO else heading, "speed": speed if input != Vector2.ZERO else 0.0, "boost": _read_boost()}
 	return {"angle": _wander(), "speed": speed * 0.6}
 
 
@@ -122,7 +140,8 @@ func _steer(target_angle: float, target_speed: float, delta: float) -> void:
 	var max_turn: float = turn_speed * delta
 	heading += clampf(angle_difference(heading, target_angle), -max_turn, max_turn)
 	_current_speed = lerpf(_current_speed, target_speed, 1.0 - exp(-8.0 * delta))
-	velocity = Vector2.from_angle(heading) * _current_speed
+	velocity = Vector2.from_angle(heading) * _current_speed + knockback
+	knockback *= exp(-6.0 * delta)  # 彈開的速度慢慢變小
 	global_position += velocity * delta
 	global_position += WaterFlow.at(global_position) * FLOW_DRIFT * delta  # 被水流推一點點
 	var area: Rect2 = get_bounds()
@@ -139,6 +158,36 @@ func _wander() -> float:
 	if not area.has_point(global_position):
 		_wander_angle = (area.get_center() - global_position).angle()
 	return _wander_angle
+
+
+## 加速：要加速、而且這一級還有吃到一半的飼料才能加速。每秒消耗 boost_cost 個，消耗的從尾巴掉出去
+func _update_boost(want: bool, delta: float) -> void:
+	boosting = want and food_progress > 0 and shape != null
+	if not boosting:
+		return
+	_boost_spent += get_balance().boost_cost * delta
+	while _boost_spent >= 1.0 and food_progress > 0:
+		_boost_spent -= 1.0
+		food_progress -= 1
+		var body: ChainBody = get_body()
+		boost_spent.emit(body.get_joint(body.joint_count() - 1) if body != null else global_position)
+
+
+## 玩家按住空白鍵或滑鼠右鍵就是要加速
+func _read_boost() -> bool:
+	return Input.is_physical_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+
+
+## 無敵時間倒數，無敵時一閃一閃
+func _update_invincible(delta: float) -> void:
+	if invincible_time <= 0.0:
+		return
+	invincible_time = maxf(invincible_time - delta, 0.0)
+	modulate.a = 1.0 if invincible_time <= 0.0 or fmod(invincible_time, 0.25) > 0.125 else 0.35
+
+
+func is_invincible() -> bool:
+	return invincible_time > 0.0
 
 
 func _read_wasd() -> Vector2:
@@ -208,6 +257,26 @@ func eat(food: Node) -> void:
 		grow(1)
 
 
+## 掉級：最多掉到 0 級，回傳真的掉了幾級。這一級吃到一半的飼料也不見了
+func lose_levels(amount: int) -> int:
+	var lost: int = mini(amount, level)
+	food_progress = 0
+	if lost > 0:
+		level -= lost
+		apply_design()
+		_notify_parts()
+	hurt.emit()
+	return lost
+
+
+## 直接設定等級（重生時回到 0 級用），吃到一半的飼料歸零
+func set_level(new_level: int) -> void:
+	level = maxi(new_level, 0)
+	food_progress = 0
+	apply_design()
+	_notify_parts()
+
+
 ## 換腳協調：另一組有腳在空中時回傳 false（group 這組的腳先等一下）。
 ## 腳分 A、B 兩組輪流走，看起來才像真的在走路
 func can_step(group: int) -> bool:
@@ -266,8 +335,10 @@ func apply_design() -> void:
 	if design == null:
 		_clear_built()
 		shape = null
+		_stats = null
 		return
 	shape = CreatureGrowth.shape_at(design, level, get_balance())
+	_stats = CreatureStats.compute(shape, get_balance())
 	_apply_abilities()
 	var structure: String = _design_structure()
 	if structure != _built_structure or not is_instance_valid(_built_body):
@@ -393,9 +464,10 @@ func get_balance() -> CreatureBalance:
 	return balance
 
 
-## 現在的能力（速度、轉向、抓取、視野、升一級要吃幾個）。沒有設計檔是 null
+## 現在的能力（速度、轉向、抓取、視野、升一級要吃幾個、體型）。沒有設計檔是 null。
+## 形狀變了（apply_design()）才重算
 func get_stats() -> CreatureStats:
-	return CreatureStats.compute(shape, get_balance()) if shape != null else null
+	return _stats
 
 
 func _notify_parts() -> void:

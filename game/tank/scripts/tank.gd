@@ -2,6 +2,8 @@
 class_name Tank
 extends Node2D
 ## 生態缸：你的生物跟著滑鼠游，點一下放飼料，吃滿就升級，照長大方式長大。
+## 大吃小：咬到比你小的生物的頭就吃掉牠；頭撞到別人的身體會掉級；按住空白鍵或右鍵加速。
+## 規則寫在 tank_rules.gd，這裡是「裁判」：每一幀檢查每一對生物，照規則處理。
 ## 水流推著水草、海葵、觸手、飼料，整缸一起晃。沒有輸贏、沒有時間限制。
 ##
 ## 玩家生物由標題畫面交過來（標題畫面的「玩家生物」欄位，拖自己的 design.tres）。
@@ -10,6 +12,8 @@ extends Node2D
 ## 水草、海葵預先擺在 Plants 節點底下，可以在編輯器裡直接拖、加、刪（數量有上限）。
 ## 這個場景的設定由社長維護，社員不用改。
 
+## 生物掉出來的飼料，幾秒之後才能吃
+const DROPPED_FOOD_WAIT: float = 0.6
 const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %d），多的先藏起來，網頁版才跑得動"
 
 @export_group("遊戲")
@@ -62,6 +66,9 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 var player: Creature
 ## 跟著玩家的鏡頭（執行時才建立）
 var camera: Camera2D
+## 玩家到過的最高等級、吃掉幾隻生物（顯示在 HUD）
+var best_level: int = 0
+var kills: int = 0
 var _food_timer: float = 0.0
 
 
@@ -90,6 +97,8 @@ func _process(delta: float) -> void:
 		return
 	_grow_food(delta)
 	_eat_food()
+	_judge_creatures()
+	_update_marks()
 	_follow_player()
 	_update_hud()
 
@@ -114,10 +123,134 @@ func _spawn_player() -> void:
 	player.design = player_design
 	player.control_mode = Creature.Mode.MOUSE
 	player.position = world_size / 2.0
-	player.bounds = world_rect()
-	_creatures.add_child(player)
+	add_creature(player)
 	camera.global_position = player.global_position
 	camera.reset_smoothing()
+
+
+## 把生物放進缸裡：設好範圍，加速消耗的飼料從尾巴掉出來
+func add_creature(creature: Creature) -> void:
+	creature.bounds = world_rect()
+	creature.boost_spent.connect(func(at: Vector2) -> void: drop_food(at, true))
+	_creatures.add_child(creature)
+
+
+## 缸裡活著的生物
+func get_creatures() -> Array[Creature]:
+	var result: Array[Creature] = []
+	for node: Node in _creatures.get_children():
+		var creature: Creature = node as Creature
+		if creature != null and not creature.is_queued_for_deletion():
+			result.append(creature)
+	return result
+
+
+# ---------------------------------------------------------------- 大吃小（裁判）
+
+
+## 每一對生物：A 的頭碰到 B 的頭 → 大的吃掉小的、差不多大就彈開；A 的頭撞到 B 的身體 → A 掉級
+func _judge_creatures() -> void:
+	var creatures: Array[Creature] = get_creatures()
+	for a: Creature in creatures:
+		for b: Creature in creatures:
+			if a == b or a.is_invincible() or b.is_invincible() or a.is_queued_for_deletion() or b.is_queued_for_deletion():
+				continue
+			var balance: CreatureBalance = a.get_balance()
+			match TankRules.contact(a, b, balance):
+				TankRules.Contact.HEAD:
+					if TankRules.can_eat(a, b, balance):
+						_kill(b, a)
+					elif TankRules.can_eat(b, a, balance):
+						_kill(a, b)
+					else:
+						_bounce(a, b.global_position, balance.bounce_speed)
+						_bounce(b, a.global_position, balance.bounce_speed)
+				TankRules.Contact.BODY:
+					_hit(a, b)
+
+
+## victim 被 eater 吃掉：沿著身體散成一串飼料，玩家重生、其他生物消失
+func _kill(victim: Creature, eater: Creature) -> void:
+	var balance: CreatureBalance = victim.get_balance()
+	var body: ChainBody = victim.get_body()
+	var along: PackedVector2Array = body.get_joints() if body != null else PackedVector2Array([victim.global_position])
+	_scatter_food(along, TankRules.dropped_food(victim.level + 1, balance))
+	if eater == player:
+		kills += 1
+		_hud.call("show_message", "吃掉一隻！", 1.5)
+	if victim == player:
+		_respawn_player()
+	else:
+		victim.queue_free()
+
+
+## a 的頭撞到 b 的身體：a 掉「b 的等級」級，掉的變成飼料，彈開、無敵一下
+func _hit(a: Creature, b: Creature) -> void:
+	var balance: CreatureBalance = a.get_balance()
+	var lost: int = a.lose_levels(TankRules.hit_damage(b.level))
+	_scatter_food(PackedVector2Array([a.global_position]), TankRules.dropped_food(lost, balance))
+	_bounce(a, _nearest_joint(b, a.global_position), balance.bounce_speed)
+	a.invincible_time = balance.hit_invincible
+	if a == player:
+		_hud.call("show_message", "撞到別人的身體，掉了 %d 級" % lost if lost > 0 else "撞到別人的身體！", 1.5)
+
+
+## 把生物往「離開 from」的方向彈開
+func _bounce(creature: Creature, from: Vector2, bounce_speed: float) -> void:
+	var away: Vector2 = creature.global_position - from
+	creature.knockback = (away.normalized() if away != Vector2.ZERO else Vector2.from_angle(randf() * TAU)) * bounce_speed
+
+
+func _nearest_joint(creature: Creature, to: Vector2) -> Vector2:
+	var body: ChainBody = creature.get_body()
+	if body == null:
+		return creature.global_position
+	var nearest: Vector2 = body.get_joint(0)
+	for i: int in body.joint_count():
+		if body.get_joint(i).distance_to(to) < nearest.distance_to(to):
+			nearest = body.get_joint(i)
+	return nearest
+
+
+## 玩家被吃掉：回到 0 級，在附近沒有大生物的地方重生，無敵一下
+func _respawn_player() -> void:
+	player.set_level(0)
+	player.global_position = _safe_spot()
+	player.knockback = Vector2.ZERO
+	player.reset_pose()
+	player.invincible_time = player.get_balance().respawn_invincible
+	camera.global_position = player.global_position
+	camera.reset_smoothing()
+	_hud.call("show_message", "被吃掉了！從 0 級重新開始", 2.5)
+
+
+## 找一個離其他生物遠一點的地方（試幾次，找最遠的）
+func _safe_spot() -> Vector2:
+	var best: Vector2 = world_size / 2.0
+	var best_distance: float = -1.0
+	for i: int in 20:
+		var spot := Vector2(randf_range(100.0, world_size.x - 100.0), randf_range(100.0, floor_y() - 100.0))
+		var nearest: float = INF
+		for creature: Creature in get_creatures():
+			if creature != player:
+				nearest = minf(nearest, creature.global_position.distance_to(spot))
+		if nearest > best_distance:
+			best = spot
+			best_distance = nearest
+	return best
+
+
+## 標記：玩家視野裡，能吃玩家的眼睛變紅、玩家吃得掉的外框變綠
+func _update_marks() -> void:
+	var sight: float = player.get_stats().sight if player != null and player.get_stats() != null else 0.0
+	for creature: Creature in get_creatures():
+		var mark: int = Creature.Mark.NONE
+		if creature != player and player != null and creature.global_position.distance_to(player.global_position) <= sight:
+			if TankRules.can_eat(creature, player, creature.get_balance()):
+				mark = Creature.Mark.DANGER
+			elif TankRules.can_eat(player, creature, player.get_balance()):
+				mark = Creature.Mark.PREY
+		creature.mark = mark
 
 
 # ---------------------------------------------------------------- 地圖、鏡頭
@@ -151,17 +284,25 @@ func _follow_player() -> void:
 # ---------------------------------------------------------------- 食物
 
 
-## 放一個飼料（場上太多就不放）。回傳放了沒
-func drop_food(at: Vector2) -> bool:
-	if _foods.get_child_count() >= max_food:
+## 放一個飼料（場上太多就不放；force 是生物掉出來的，一定放）。回傳放了沒
+func drop_food(at: Vector2, force: bool = false) -> bool:
+	if _foods.get_child_count() >= max_food and not force:
 		return false
 	var food := Food.new()
 	food.color = food_color
 	food.floor_y = floor_y()
 	food.max_x = world_size.x
+	food.wait = DROPPED_FOOD_WAIT if force else 0.0
 	food.position = at
 	_foods.add_child(food)
 	return true
+
+
+## 沿著 along 這串點平均掉 count 個飼料（生物被吃掉、掉級時），每個稍微散開一點
+func _scatter_food(along: PackedVector2Array, count: int) -> void:
+	for i: int in count:
+		var at: Vector2 = along[floori(float(i) / count * along.size())]
+		drop_food((at + Vector2.from_angle(randf() * TAU) * randf_range(4.0, 20.0)).clamp(Vector2.ZERO, Vector2(world_size.x, floor_y())), true)
 
 
 ## 缸裡自己長食物：每隔一段時間，在地圖上隨機的地方冒出一個
@@ -219,8 +360,10 @@ func _update_hud() -> void:
 	var stars: Callable = func(ability: String) -> String:
 		var count: int = stats.stars(ability, balance.max_stars)
 		return "★".repeat(count) + "☆".repeat(balance.max_stars - count)
-	_hud.call("show_status", game_name, "等級 %d　再吃 %d 個升級\n速度 %s　轉向 %s　抓取 %s　視野 %s" % [
-		player.level, stats.level_cost - player.food_progress, stars.call("speed"), stars.call("turn"), stars.call("grab"), stars.call("sight")])
+	best_level = maxi(best_level, player.level)
+	_hud.call("show_status", game_name, "等級 %d　再吃 %d 個升級　最高 %d 級　吃掉 %d 隻\n速度 %s　轉向 %s　抓取 %s　視野 %s\n空白鍵／右鍵：加速（消耗吃到一半的飼料）" % [
+		player.level, stats.level_cost - player.food_progress, best_level, kills,
+		stars.call("speed"), stars.call("turn"), stars.call("grab"), stars.call("sight")])
 
 
 func _play_music() -> void:

@@ -13,6 +13,10 @@ const MAX_SEGMENTS: int = 200
 ## 備用畫法：每兩節之間排幾個圓
 const FALLBACK_STEPS: int = 3
 
+## 生態缸裡玩家吃得掉的生物，身體外面那圈綠色的顏色、寬度（像素）
+const PREY_COLOR: Color = Color("#5dff6a")
+const PREY_GLOW_WIDTH: float = 4.0
+
 ## 花紋的編號，跟「花紋」選單的順序一樣
 enum Pattern { NONE, SPOTS, STRIPES, FIN }
 
@@ -330,6 +334,7 @@ static func _make_default_gradient() -> Gradient:
 func _draw() -> void:
 	if _display.size() < 2:
 		return
+	_draw_prey_glow()
 	var sides: Array = _build_sides()
 	var last: int = _display.size() - 1
 	# 平常整條身體一次畫完。身體捲起來、跟自己重疊時，輪廓會交叉、畫不出來，
@@ -346,6 +351,18 @@ func _draw() -> void:
 
 	if CreatureDebug.bones_visible(self):
 		_draw_bones()
+
+
+## 生態缸裡玩家吃得掉的生物：身體外面多一圈綠色（先畫，身體蓋在上面，只露出外圈）
+func _draw_prey_glow() -> void:
+	var creature: Creature = _get_creature()
+	if creature == null or creature.mark != Creature.Mark.PREY:
+		return
+	for i: int in _display.size():
+		var at: Vector2 = to_local(_display[i])
+		draw_circle(at, get_width(i) + PREY_GLOW_WIDTH, PREY_COLOR, true, -1.0, true)
+		if i > 0:
+			draw_line(to_local(_display[i - 1]), at, PREY_COLOR, (get_width(i) + PREY_GLOW_WIDTH) * 2.0, true)
 
 
 ## 畫第 from～to 節（含輪廓、花紋、外框）。花紋只畫到 pattern_end，多畫的那一節留給後面那段。

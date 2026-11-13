@@ -14,6 +14,9 @@ const BLINK_TIME: float = 0.12
 const BLINK_INTERVAL_MIN: float = 2.0
 const BLINK_INTERVAL_MAX: float = 5.0
 
+## 能吃掉玩家的生物，眼白變成這個顏色
+const DANGER_COLOR: Color = Color("#ff3b30")
+
 @export_group("掛載位置")
 ## 掛在身體的第幾節：0 是頭
 @export_range(-1, 80, 1, "or_greater") var attach_segment: int = 0:
@@ -136,6 +139,14 @@ func _segment_width() -> float:
 	return get_creature().head_radius if get_creature() != null else 10.0
 
 
+## 眼白的顏色：生態缸裡能吃掉玩家的生物，眼睛變紅
+func _white() -> Color:
+	var creature: Creature = get_creature()
+	if creature != null and creature.mark == Creature.Mark.DANGER:
+		return DANGER_COLOR
+	return white_color
+
+
 func _draw() -> void:
 	var white_radius: float = _segment_width() * size
 	var style: Dictionary = outline_style()
@@ -147,6 +158,6 @@ func _draw() -> void:
 			var across: Vector2 = Vector2.from_angle(anchor_angle(attach_segment) - global_rotation + PI / 2.0) * white_radius
 			draw_line(center - across, center + across, style.color, maxf(1.5, white_radius * 0.3), true)
 			continue
-		draw_circle(center, white_radius, white_color, true, -1.0, true)
+		draw_circle(center, white_radius, _white(), true, -1.0, true)
 		var local_look: Vector2 = look.rotated(-global_rotation)
 		draw_circle(center + local_look * white_radius * 0.35, white_radius * 0.5, pupil_color, true, -1.0, true)
