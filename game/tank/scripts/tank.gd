@@ -1,3 +1,4 @@
+@tool
 class_name Tank
 extends Node2D
 ## 生態缸：你的生物跟著滑鼠游，點一下放飼料，吃滿就升級，照長大方式長大。
@@ -5,6 +6,7 @@ extends Node2D
 ##
 ## 玩家生物由標題畫面交過來（標題畫面的「玩家生物」欄位，拖自己的 design.tres）。
 ## 直接執行這個場景（F6）時用下面「玩家生物」欄位的設計檔。
+## 地圖比畫面大，鏡頭跟著玩家走。編輯器裡看到的那一整片水就是地圖範圍。
 ## 水草、海葵預先擺在 Plants 節點底下，可以在編輯器裡直接拖、加、刪（數量有上限）。
 ## 這個場景的設定由社長維護，社員不用改。
 
@@ -15,6 +17,12 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 @export var game_name: String = "生態缸"
 ## 玩家生物（設計檔）。從標題畫面開始時，會換成標題畫面設定的設計檔
 @export var player_design: CreatureDesign
+## 地圖大小（像素）：一個畫面是 1280 × 720。鏡頭跟著玩家走，到邊緣就停住
+@export var world_size: Vector2 = Vector2(2560, 1440):
+	set(value):
+		world_size = value.max(TankWater.SCREEN)  # 不能比一個畫面小
+		if is_node_ready():
+			_water.set("world_size", world_size)
 
 @export_group("食物")
 ## 場上最多幾個飼料
@@ -52,10 +60,15 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 
 ## 玩家的生物
 var player: Creature
+## 跟著玩家的鏡頭（執行時才建立）
+var camera: Camera2D
 var _food_timer: float = 0.0
 
 
 func _ready() -> void:
+	_water.set("world_size", world_size)
+	if Engine.is_editor_hint():
+		return  # 編輯器裡只畫水和水草，不開始遊戲
 	WaterFlow.strength = flow_strength
 	WaterFlow.wave_size = flow_wave_size
 	WaterFlow.speed = flow_speed
@@ -63,20 +76,27 @@ func _ready() -> void:
 	_water.set("background", background)
 	_play_music()
 	_limit_plants()
+	_create_camera()
 	_spawn_player()
 
 
 func _exit_tree() -> void:
-	WaterFlow.reset()  # 回到標題、工坊時是靜水
+	if not Engine.is_editor_hint():
+		WaterFlow.reset()  # 回到標題、工坊時是靜水
 
 
 func _process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
 	_grow_food(delta)
 	_eat_food()
+	_follow_player()
 	_update_hud()
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	var click: InputEventMouseButton = event as InputEventMouseButton
 	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
 		drop_food(get_global_mouse_position())
@@ -93,8 +113,39 @@ func _spawn_player() -> void:
 	player.name = "Player"
 	player.design = player_design
 	player.control_mode = Creature.Mode.MOUSE
-	player.position = TankWater.screen_size() / 2.0
+	player.position = world_size / 2.0
+	player.bounds = world_rect()
 	_creatures.add_child(player)
+	camera.global_position = player.global_position
+	camera.reset_smoothing()
+
+
+# ---------------------------------------------------------------- 地圖、鏡頭
+
+
+## 整張地圖的範圍（全局座標）
+func world_rect() -> Rect2:
+	return Rect2(Vector2.ZERO, world_size)
+
+
+## 鏡頭：跟著玩家，到地圖邊緣就停住（看不到地圖外面）
+func _create_camera() -> void:
+	camera = Camera2D.new()
+	camera.name = "Camera"
+	camera.limit_left = 0
+	camera.limit_top = 0
+	camera.limit_right = int(world_size.x)
+	camera.limit_bottom = int(world_size.y)
+	camera.position = world_size / 2.0
+	camera.position_smoothing_enabled = true
+	camera.position_smoothing_speed = 6.0
+	add_child(camera)
+	camera.make_current()
+
+
+func _follow_player() -> void:
+	if player != null:
+		camera.global_position = player.global_position
 
 
 # ---------------------------------------------------------------- 食物
@@ -107,21 +158,20 @@ func drop_food(at: Vector2) -> bool:
 	var food := Food.new()
 	food.color = food_color
 	food.floor_y = floor_y()
-	food.max_x = TankWater.screen_size().x
+	food.max_x = world_size.x
 	food.position = at
 	_foods.add_child(food)
 	return true
 
 
-## 缸裡自己長食物：每隔一段時間，在隨機的地方冒出一個
+## 缸裡自己長食物：每隔一段時間，在地圖上隨機的地方冒出一個
 func _grow_food(delta: float) -> void:
 	if auto_food_interval <= 0.0:
 		return
 	_food_timer += delta
 	while _food_timer >= auto_food_interval:
 		_food_timer -= auto_food_interval
-		var size: Vector2 = TankWater.screen_size()
-		drop_food(Vector2(randf_range(40.0, size.x - 40.0), randf_range(40.0, floor_y() - 40.0)))
+		drop_food(Vector2(randf_range(40.0, world_size.x - 40.0), randf_range(40.0, floor_y() - 40.0)))
 
 
 ## 頭碰到飼料就吃掉（每隻生物都一樣，之後的 NPC 也用這個）
@@ -140,7 +190,7 @@ func _eat_food() -> void:
 
 ## 地板的高度（全局 y）：飼料沉到這裡停
 func floor_y() -> float:
-	return TankWater.screen_size().y - float(_water.get("sand_height")) - Food.RADIUS
+	return world_size.y - float(_water.get("sand_height")) - Food.RADIUS
 
 
 # ---------------------------------------------------------------- 其他

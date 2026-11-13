@@ -2,7 +2,16 @@
 class_name TankWater
 extends Node2D
 ## 生態缸的水：底色、從上面照下來的光、慢慢飄的水紋、往上冒的氣泡，最下面是沙地。
-## 放了背景圖就畫背景圖。顏色和背景圖由生態缸（Tank）的「外觀」屬性設定。
+## 畫滿整張地圖（大小、顏色、背景圖都由生態缸 Tank 的屬性設定）。放了背景圖就把圖拉滿整張地圖。
+
+## 一個畫面的大小，用來決定光、水紋、氣泡要畫幾個（地圖越大畫越多）
+const SCREEN: Vector2 = Vector2(1280, 720)
+
+## 地圖大小（像素）
+@export var world_size: Vector2 = SCREEN:
+	set(value):
+		world_size = value
+		queue_redraw()
 
 ## 水的顏色
 @export var water_color: Color = Color("#123c46"):
@@ -35,13 +44,8 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## 畫面大小（1280 × 720）
-static func screen_size() -> Vector2:
-	return Vector2(ProjectSettings.get_setting("display/window/size/viewport_width"), ProjectSettings.get_setting("display/window/size/viewport_height"))
-
-
 func _draw() -> void:
-	var size: Vector2 = screen_size()
+	var size: Vector2 = world_size
 	if background != null:
 		draw_texture_rect(background, Rect2(Vector2.ZERO, size), false)
 	else:
@@ -56,8 +60,9 @@ func _draw() -> void:
 
 ## 光：幾道從水面斜斜照下來的淡淡光柱，慢慢晃
 func _draw_light(size: Vector2) -> void:
-	for i: int in 5:
-		var x: float = size.x * (i + 0.5) / 5.0 + sin(_time * 0.3 + i * 1.7) * 40.0
+	var count: int = ceili(5.0 * size.x / SCREEN.x)
+	for i: int in count:
+		var x: float = size.x * (i + 0.5) / count + sin(_time * 0.3 + i * 1.7) * 40.0
 		var width: float = 60.0 + (i % 3) * 30.0
 		draw_colored_polygon(PackedVector2Array([Vector2(x - width / 2, 0), Vector2(x + width / 2, 0), Vector2(x + width + 80, size.y), Vector2(x + 80, size.y)]), Color(1, 1, 1, 0.025))
 
@@ -65,7 +70,7 @@ func _draw_light(size: Vector2) -> void:
 ## 水紋：十幾個淡淡的弧線，慢慢往右飄
 func _draw_ripples(size: Vector2) -> void:
 	var ripple_color: Color = Color(water_color.lightened(0.5), 0.12)
-	for i: int in 14:
+	for i: int in _count_for(size, 14):
 		var x: float = fposmod(i * 97.3 + _time * 8.0 * (1 + i % 3), size.x + 80.0) - 40.0
 		var y: float = fposmod(i * 153.1, size.y) + sin(_time * 0.4 + i) * 12.0
 		var radius: float = 18.0 + (i % 4) * 8.0
@@ -75,7 +80,12 @@ func _draw_ripples(size: Vector2) -> void:
 ## 氣泡：小圓圈從下面慢慢往上冒，左右晃
 func _draw_bubbles(size: Vector2) -> void:
 	var bubble_color: Color = Color(1, 1, 1, 0.15)
-	for i: int in 10:
+	for i: int in _count_for(size, 10):
 		var y: float = size.y - fposmod(_time * 18.0 * (1 + i % 2) + i * 73.0, size.y + 20.0)
 		var x: float = fposmod(i * 131.7, size.x) + sin(_time * 1.3 + i) * 6.0
 		draw_arc(Vector2(x, y), 3.0 + (i % 3), 0.0, TAU, 12, bubble_color, 1.0, true)
+
+
+## 一個畫面畫 per_screen 個，地圖越大畫越多
+func _count_for(size: Vector2, per_screen: int) -> int:
+	return ceili(per_screen * size.x * size.y / (SCREEN.x * SCREEN.y))

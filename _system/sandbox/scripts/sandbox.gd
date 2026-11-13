@@ -9,7 +9,7 @@ const CREATURE_FOLDERS: PackedStringArray = ["res://example/creatures/", "res://
 ## 設計檔放在這些資料夾的子資料夾裡（<名字>/design.tres）
 const DESIGN_FOLDERS: PackedStringArray = ["res://example/creatures/", "res://my_creature/"]
 ## 控制方式選單的文字，順序跟 Creature 的「控制方式」一樣
-const MODE_NAMES: PackedStringArray = ["玩家（滑鼠）", "玩家（WASD）", "漫遊", "追玩家", "躲玩家"]
+const MODE_NAMES: PackedStringArray = ["玩家（滑鼠）", "玩家（WASD）", "漫遊"]
 const FOOD_SCRIPT: GDScript = preload("res://_system/sandbox/scripts/sandbox_food.gd")
 ## 一開始放幾個食物
 const START_FOOD: int = 6

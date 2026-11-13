@@ -24,7 +24,7 @@ const START_LENGTH: int = 10
 const FLOW_DRIFT: float = 0.3
 
 ## 控制方式的編號，跟下面「控制方式」選單的順序一樣
-enum Mode { MOUSE, WASD, WANDER, CHASE, FLEE }
+enum Mode { MOUSE, WASD, WANDER }
 
 ## 設計檔：拖一份 design.tres 進來，身體和零件會自己長出來（不用自己加節點）。
 ## 自己長出來的節點不會存進場景檔，改了設計檔就會跟著變
@@ -35,8 +35,8 @@ enum Mode { MOUSE, WASD, WANDER, CHASE, FLEE }
 			apply_design()
 
 @export_group("動作")
-## 誰在控制這隻生物。漫遊、追玩家、躲玩家是電腦控制
-@export_enum("玩家（滑鼠）", "玩家（WASD）", "漫遊", "追玩家", "躲玩家") var control_mode: int = Mode.MOUSE:
+## 誰在控制這隻生物。漫遊是電腦控制
+@export_enum("玩家（滑鼠）", "玩家（WASD）", "漫遊") var control_mode: int = Mode.MOUSE:
 	set(value):
 		control_mode = value
 		_update_player_group()
@@ -44,8 +44,6 @@ enum Mode { MOUSE, WASD, WANDER, CHASE, FLEE }
 @export_range(0, 1000, 10) var speed: float = 240.0
 ## 轉向速度（度／秒）：越小轉彎越大、越像在游
 @export_range(30, 1080, 10, "radians_as_degrees") var turn_speed: float = deg_to_rad(270.0)
-## 偵測距離（像素）：電腦控制時，玩家多近會被發現
-@export_range(0, 1000, 10) var detect_range: float = 250.0
 
 @export_group("形狀")
 ## 頭的碰撞半徑（像素）：吃東西、被咬都用這個圓判斷
@@ -72,6 +70,8 @@ var _current_speed: float = 0.0
 ## 漫遊：多久之後換方向、要往哪個方向
 var _wander_timer: float = 0.0
 var _wander_angle: float = 0.0
+## 可以游的範圍（全局座標）。空的就是畫面範圍；生態缸會設成整張地圖
+var bounds: Rect2 = Rect2()
 ## 平衡資料：體型、能力的係數。空的就用預設的 balance.tres
 var balance: CreatureBalance
 ## 現在的形狀：設計檔照現在的等級長大後的樣子（CreatureGrowth.shape_at() 的結果）。沒有設計檔是 null
@@ -114,15 +114,10 @@ func _get_move_target() -> Dictionary:
 		Mode.WASD:
 			var input: Vector2 = _read_wasd()
 			return {"angle": input.angle() if input != Vector2.ZERO else heading, "speed": speed if input != Vector2.ZERO else 0.0}
-		Mode.CHASE, Mode.FLEE:
-			var player: Creature = _find_player()
-			if player != null and global_position.distance_to(player.global_position) < detect_range:
-				var to_player: float = (player.global_position - global_position).angle()
-				return {"angle": to_player if control_mode == Mode.CHASE else to_player + PI, "speed": speed}
 	return {"angle": _wander(), "speed": speed * 0.6}
 
 
-## 轉向目標角度（每秒最多轉 turn_speed）、往前走，最後留在畫面裡
+## 轉向目標角度（每秒最多轉 turn_speed）、往前走，最後留在範圍裡
 func _steer(target_angle: float, target_speed: float, delta: float) -> void:
 	var max_turn: float = turn_speed * delta
 	heading += clampf(angle_difference(heading, target_angle), -max_turn, max_turn)
@@ -130,17 +125,17 @@ func _steer(target_angle: float, target_speed: float, delta: float) -> void:
 	velocity = Vector2.from_angle(heading) * _current_speed
 	global_position += velocity * delta
 	global_position += WaterFlow.at(global_position) * FLOW_DRIFT * delta  # 被水流推一點點
-	var area: Rect2 = _get_screen_rect()
+	var area: Rect2 = get_bounds()
 	global_position = global_position.clamp(area.position, area.end)
 
 
-## 漫遊：每隔 1～3 秒隨機換個方向；靠近畫面邊緣就轉回中間
+## 漫遊：每隔 1～3 秒隨機換個方向；靠近邊緣就轉回中間
 func _wander() -> float:
 	_wander_timer -= get_process_delta_time()
 	if _wander_timer <= 0.0:
 		_wander_timer = randf_range(1.0, 3.0)
 		_wander_angle = heading + randf_range(-PI / 2.0, PI / 2.0)
-	var area: Rect2 = _get_screen_rect().grow(-80.0)
+	var area: Rect2 = get_bounds().grow(-80.0)
 	if not area.has_point(global_position):
 		_wander_angle = (area.get_center() - global_position).angle()
 	return _wander_angle
@@ -159,20 +154,10 @@ func _read_wasd() -> Vector2:
 	return input
 
 
-## 找最近的玩家生物（玩家控制的生物會自動加進 "player" 群組）
-func _find_player() -> Creature:
-	var nearest: Creature = null
-	for node: Node in get_tree().get_nodes_in_group("player"):
-		var other: Creature = node as Creature
-		if other == null or other == self:
-			continue
-		if nearest == null or global_position.distance_to(other.global_position) < global_position.distance_to(nearest.global_position):
-			nearest = other
-	return nearest
-
-
-## 畫面範圍（全局座標），有攝影機時跟著攝影機
-func _get_screen_rect() -> Rect2:
+## 可以游的範圍（全局座標）：有設定 bounds 就用它，不然是畫面範圍（有攝影機時跟著攝影機）
+func get_bounds() -> Rect2:
+	if bounds.has_area():
+		return bounds
 	return get_canvas_transform().affine_inverse() * get_viewport_rect()
 
 

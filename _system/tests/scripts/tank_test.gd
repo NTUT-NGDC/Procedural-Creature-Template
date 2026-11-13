@@ -1,6 +1,7 @@
 extends Node
 ## 生態缸的自動測試：
 ## 1. 開始：玩家生物照設計檔長出來、滑鼠控制，速度和頭的大小來自能力；水流照設定
+##    大地圖：玩家在地圖中央、鏡頭跟著玩家，到邊緣鏡頭停住、生物游不出地圖
 ## 2. 飼料：點一下放一個；最多 max_food 個；會往下沉、沉到底停住；缸裡會自己長（間隔 0 就不長）
 ## 3. 吃東西：頭碰到就吃掉；吃滿「升一級要吃幾個」才升級，升級後照長大方式變大
 ## 4. 水草：有水流時會歪；生物經過被撥開（點在身體外面），生物走了會站回來
@@ -20,6 +21,7 @@ var _failures: int = 0
 
 func _ready() -> void:
 	await _test_start()
+	await _test_world()
 	await _test_food()
 	await _test_eat_and_grow()
 	await _test_weed()
@@ -44,6 +46,28 @@ func _test_start() -> void:
 	_expect(WaterFlow.strength == tank.flow_strength and WaterFlow.at(Vector2(300, 300)) != Vector2.ZERO, "水流強度照生態缸的設定（%.0f）" % WaterFlow.strength)
 	await _free(tank)
 	_expect(WaterFlow.strength == 0.0 and WaterFlow.at(Vector2(300, 300)) == Vector2.ZERO, "離開生態缸：水流歸零")
+
+
+func _test_world() -> void:
+	print("--- 大地圖 ---")
+	var tank: Tank = await _spawn({"world_size": Vector2(2560, 1440), "auto_food_interval": 0.0})
+	var player: Creature = tank.player
+	_expect(player.global_position.distance_to(Vector2(1280, 720)) < 50.0 and player.bounds == Rect2(0, 0, 2560, 1440), "玩家在地圖中央，範圍是整張地圖")
+	_expect(tank.camera != null and tank.camera.is_current(), "有跟著玩家的鏡頭")
+	player.set_process(false)  # 先停住，才不會跟著滑鼠跑掉
+	player.global_position = Vector2(1600, 900)
+	await _seconds(1.0)
+	_expect(tank.camera.get_screen_center_position().distance_to(player.global_position) < 20.0, "鏡頭跟著玩家走（差 %.0f 像素）" % tank.camera.get_screen_center_position().distance_to(player.global_position))
+	player.global_position = Vector2(2550, 1430)
+	await _seconds(1.0)
+	_expect(tank.camera.get_screen_center_position().is_equal_approx(Vector2(2560 - 640, 1440 - 360)), "玩家在角落：鏡頭停在地圖邊緣，看不到外面")
+	player.global_position = Vector2(3000, -100)
+	player.set_process(true)
+	await _frames(2)
+	_expect(Rect2(0, 0, 2560, 1440).grow(0.5).has_point(player.global_position), "生物游不出地圖")
+	tank.drop_food(Vector2(2500, 100))
+	_expect(tank.get_node("%Foods").get_child(0).max_x == 2560.0, "飼料的範圍是整張地圖")
+	await _free(tank)
 
 
 func _test_food() -> void:
@@ -115,6 +139,7 @@ func _test_weed() -> void:
 
 	WaterFlow.strength = 0.0
 	tank.flow_strength = 0.0
+	await _seconds(3.0)  # 等水草站回來，再讓生物鑽進去
 	var middle: Vector2 = weed.global_position + Vector2.UP.rotated(weed.lean) * weed.height * 0.6
 	tank.player.global_position = middle
 	tank.player.reset_pose()
