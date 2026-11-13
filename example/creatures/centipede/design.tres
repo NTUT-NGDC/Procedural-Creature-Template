@@ -1,0 +1,132 @@
+[gd_resource type="Resource" script_class="CreatureDesign" format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/body_design.gd" id="1_40p3l"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_d08e6"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/leg_design.gd" id="3_obyas"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_skco3"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature_design.gd" id="5_fapcr"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_hmb8c"]
+
+[sub_resource type="Gradient" id="Gradient_oqglm"]
+colors = PackedColorArray(0.7529412, 0.39215687, 0.22745098, 1, 0.5411765, 0.24705882, 0.14117648, 1)
+
+[sub_resource type="Curve" id="Curve_pt8di"]
+_data = [Vector2(0, 0.9), 0.0, 0.0, 0, 0, Vector2(0.15, 1), 0.0, 0.0, 0, 0, Vector2(0.85, 0.9), 0.0, 0.0, 0, 0, Vector2(1, 0.5), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="Resource" id="Resource_4fihb"]
+script = ExtResource("1_40p3l")
+segment_count = 14
+max_bend = 0.4363323129985824
+thickness = 11.0
+width_curve = SubResource("Curve_pt8di")
+body_gradient = SubResource("Gradient_oqglm")
+outline_color = Color(0.9490196, 0.78039217, 0.60784316, 1)
+pattern = 2
+pattern_color = Color(0.3529412, 0.16470589, 0.09411765, 1)
+
+[sub_resource type="Resource" id="Resource_xpaxp"]
+script = ExtResource("3_obyas")
+thigh_length = 10.0
+shin_length = 12.0
+rest_angle = 1.3962634015954636
+rest_distance = 0.85
+step_distance = 10.0
+step_time = 0.1
+lift_height = 1.5
+leg_width = 3.0
+leg_color = Color(0.9098039, 0.69803923, 0.47843137, 1)
+
+[sub_resource type="Resource" id="Resource_xoa4e"]
+script = ExtResource("3_obyas")
+attach_segment = 3
+thigh_length = 10.0
+shin_length = 12.0
+rest_angle = 1.3962634015954636
+rest_distance = 0.85
+step_distance = 10.0
+step_time = 0.1
+lift_height = 1.5
+group = 1
+leg_width = 3.0
+leg_color = Color(0.9098039, 0.69803923, 0.47843137, 1)
+
+[sub_resource type="Resource" id="Resource_mxt63"]
+script = ExtResource("3_obyas")
+attach_segment = 5
+thigh_length = 10.0
+shin_length = 12.0
+rest_angle = 1.3962634015954636
+rest_distance = 0.85
+step_distance = 10.0
+step_time = 0.1
+lift_height = 1.5
+leg_width = 3.0
+leg_color = Color(0.9098039, 0.69803923, 0.47843137, 1)
+
+[sub_resource type="Resource" id="Resource_43k84"]
+script = ExtResource("3_obyas")
+attach_segment = 7
+thigh_length = 10.0
+shin_length = 12.0
+rest_angle = 1.3962634015954636
+rest_distance = 0.85
+step_distance = 10.0
+step_time = 0.1
+lift_height = 1.5
+group = 1
+leg_width = 3.0
+leg_color = Color(0.9098039, 0.69803923, 0.47843137, 1)
+
+[sub_resource type="Resource" id="Resource_6h77q"]
+script = ExtResource("3_obyas")
+attach_segment = 9
+thigh_length = 10.0
+shin_length = 12.0
+rest_angle = 1.3962634015954636
+rest_distance = 0.85
+step_distance = 10.0
+step_time = 0.1
+lift_height = 1.5
+leg_width = 3.0
+leg_color = Color(0.9098039, 0.69803923, 0.47843137, 1)
+
+[sub_resource type="Resource" id="Resource_845g4"]
+script = ExtResource("3_obyas")
+attach_segment = 11
+thigh_length = 10.0
+shin_length = 12.0
+rest_angle = 1.3962634015954636
+rest_distance = 0.85
+step_distance = 10.0
+step_time = 0.1
+lift_height = 1.5
+group = 1
+leg_width = 3.0
+leg_color = Color(0.9098039, 0.69803923, 0.47843137, 1)
+
+[sub_resource type="Gradient" id="Gradient_u3frq"]
+offsets = PackedFloat32Array(0)
+colors = PackedColorArray(0.5411765, 0.24705882, 0.14117648, 1)
+
+[sub_resource type="Resource" id="Resource_nywnu"]
+script = ExtResource("6_hmb8c")
+reach_angle = 0.5235987755982988
+segment_count = 6
+length = 30.0
+base_width = 1.5
+tip_width = 0.5
+behavior = 1
+wave_amplitude = 4.0
+wave_speed = 4.0
+color_gradient = SubResource("Gradient_u3frq")
+suckers = false
+
+[resource]
+script = ExtResource("5_fapcr")
+creature_name = "蜈蚣"
+growth_mode = 1
+legs_every = 2
+body = SubResource("Resource_4fihb")
+legs = Array[ExtResource("3_obyas")]([SubResource("Resource_xpaxp"), SubResource("Resource_xoa4e"), SubResource("Resource_mxt63"), SubResource("Resource_43k84"), SubResource("Resource_6h77q"), SubResource("Resource_845g4")])
+tentacles = Array[ExtResource("6_hmb8c")]([SubResource("Resource_nywnu")])

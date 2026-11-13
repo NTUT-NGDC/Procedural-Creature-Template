@@ -24,6 +24,14 @@ const START_LENGTH: int = 10
 ## 控制方式的編號，跟下面「控制方式」選單的順序一樣
 enum Mode { MOUSE, WASD, WANDER, CHASE, FLEE }
 
+## 設計檔：拖一份 design.tres 進來，身體和零件會自己長出來（不用自己加節點）。
+## 自己長出來的節點不會存進場景檔，改了設計檔就會跟著變
+@export var design: CreatureDesign:
+	set(value):
+		design = value
+		if is_inside_tree():
+			apply_design()
+
 @export_group("動作")
 ## 誰在控制這隻生物。漫遊、追玩家、躲玩家是電腦控制
 @export_enum("玩家（滑鼠）", "玩家（WASD）", "漫遊", "追玩家", "躲玩家") var control_mode: int = Mode.MOUSE:
@@ -60,9 +68,15 @@ var _current_speed: float = 0.0
 ## 漫遊：多久之後換方向、要往哪個方向
 var _wander_timer: float = 0.0
 var _wander_angle: float = 0.0
+## 依設計檔長出來的節點：身體、零件（順序跟 design.all_parts() 一樣）
+var _built_body: ChainBody
+var _built_parts: Array[Node] = []
+## 長出來時的「結構」（零件數量、左右、圖）。結構沒變就只更新屬性，不重長
+var _built_structure: String = ""
 
 
 func _ready() -> void:
+	apply_design()
 	if Engine.is_editor_hint():
 		return
 	_wander_angle = heading
@@ -237,6 +251,118 @@ func set_collision(layer: int, mask: int) -> void:
 		var area: Area2D = node as Area2D
 		area.collision_layer = layer
 		area.collision_mask = mask
+
+
+# ---------------------------------------------------------------- 設計檔
+
+
+## 依設計檔長出（或更新）身體和零件。改了設計檔的內容之後呼叫這個，生物就會變樣子。
+## 零件數量、左右、圖沒變時只更新屬性（生物不會跳回預覽姿勢）；變了就整個重長
+func apply_design() -> void:
+	if design == null:
+		_clear_built()
+		return
+	var structure: String = _design_structure()
+	if structure != _built_structure or not is_instance_valid(_built_body):
+		_clear_built()
+		_build()
+		_built_structure = structure
+	else:
+		design.body.apply_to(_built_body)
+		var parts: Array[PartDesign] = design.all_parts()
+		for i: int in parts.size():
+			parts[i].apply_to(_built_parts[i])
+			if parts[i] is OrnamentDesign:
+				_apply_image(_built_parts[i], parts[i])
+	_sort_parts()
+
+
+## 零件的上下順序：掛得越靠尾巴越先畫（在下面），越靠頭越後畫（在上面）；眼睛永遠在最上面。
+## 掛在同一節的零件維持設計檔裡的順序
+func _sort_parts() -> void:
+	var order: Array[int] = []
+	for i: int in _built_parts.size():
+		order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool:
+		var layer_a: int = _part_layer(_built_parts[a])
+		var layer_b: int = _part_layer(_built_parts[b])
+		return layer_a > layer_b if layer_a != layer_b else a < b)
+	for i: int in order:
+		_built_body.move_child(_built_parts[i], -1)
+
+
+## 排順序用：掛在第幾節（-1 換成真正的最後一節）。眼睛是 -1，排在最後面（最上面）
+func _part_layer(part: Node) -> int:
+	if part is Eyes:
+		return -1
+	return _built_body.resolve_index(part.get("attach_segment"))
+
+
+## 長出身體，再把零件一個一個加在身體上。節點不設 owner，所以不會存進場景檔
+func _build() -> void:
+	_built_body = ChainBody.new()
+	_built_body.name = "Body"
+	add_child(_built_body)
+	design.body.apply_to(_built_body)
+	for part: PartDesign in design.all_parts():
+		var node: Node2D = _new_part_node(part)
+		if part is OrnamentDesign:
+			# 掛件「兩邊」要在加進場景前就有圖，右邊才會複製一份
+			part.apply_to(node)
+			_add_image(node, part)
+			_built_body.add_child(node)
+		else:
+			_built_body.add_child(node)
+			part.apply_to(node)
+		_built_parts.append(node)
+
+
+func _new_part_node(part: PartDesign) -> Node2D:
+	if part is LegDesign:
+		return IKLeg.new()
+	if part is TentacleDesign:
+		return Tentacle.new()
+	if part is EyesDesign:
+		return Eyes.new()
+	return Ornament.new()
+
+
+## 掛件放自己的圖：在掛件底下加一個 Sprite2D
+func _add_image(ornament: Node2D, part: OrnamentDesign) -> void:
+	if part.image_file == "":
+		return
+	var sprite := Sprite2D.new()
+	sprite.name = "Image"
+	sprite.texture = design.load_image(part.image_file)
+	ornament.add_child(sprite)
+	_apply_image(ornament, part)
+
+
+func _apply_image(ornament: Node, part: OrnamentDesign) -> void:
+	var sprite: Sprite2D = ornament.get_node_or_null("Image") as Sprite2D
+	if sprite != null:
+		sprite.scale = Vector2.ONE * part.image_scale
+		sprite.rotation = part.image_rotation
+
+
+func _clear_built() -> void:
+	for node: Node in [_built_body] + _built_parts:
+		if is_instance_valid(node):
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	_built_body = null
+	_built_parts.clear()
+	_built_structure = ""
+
+
+## 設計檔的「結構」寫成一串字：零件的種類和數量、掛件的左右和圖。這串字變了就要重長
+func _design_structure() -> String:
+	var text: String = ""
+	for part: PartDesign in design.all_parts():
+		text += part.get_script().get_global_name() + ","
+		if part is OrnamentDesign:
+			text += "%d:%s," % [part.side, part.image_file]
+	return text
 
 
 func _notify_parts() -> void:

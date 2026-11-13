@@ -1,0 +1,132 @@
+[gd_resource type="Resource" script_class="CreatureDesign" format=3 uid="uid://b825offvi7wtv"]
+
+[ext_resource type="Script" uid="uid://b873nuhby6g3e" path="res://game/creature_parts/scripts/body_design.gd" id="1_yxqyl"]
+[ext_resource type="Script" uid="uid://cn0ljeabka0ty" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_3iiej"]
+[ext_resource type="Script" uid="uid://c4h001uiua6ym" path="res://game/creature_parts/scripts/leg_design.gd" id="3_x878j"]
+[ext_resource type="Script" uid="uid://csa5by83tyx5h" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_h057b"]
+[ext_resource type="Script" uid="uid://cmilddg5k2638" path="res://game/creature_parts/scripts/creature_design.gd" id="5_ussj7"]
+[ext_resource type="Script" uid="uid://enbdef03neq1" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_4hqjy"]
+
+[sub_resource type="Gradient" id="Gradient_sdj7i"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.7529412, 0.22352941, 0.16862746, 1, 0.9019608, 0.49411765, 0.13333334, 1, 0.9607843, 0.6901961, 0.25490198, 1)
+
+[sub_resource type="Curve" id="Curve_oo1fu"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.2, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_qljuc"]
+script = ExtResource("1_yxqyl")
+segment_count = 20
+spacing = 12.0
+thickness = 15.0
+width_curve = SubResource("Curve_oo1fu")
+swim_amplitude = 3.0
+body_gradient = SubResource("Gradient_sdj7i")
+outline_color = Color(1, 0.8784314, 0.6901961, 1)
+pattern = 0
+
+[sub_resource type="Resource" id="Resource_s74qu"]
+script = ExtResource("2_3iiej")
+pupil_color = Color(0.3529412, 0.101960786, 0, 1)
+
+[sub_resource type="Resource" id="Resource_hoqrh"]
+script = ExtResource("3_x878j")
+attach_segment = 3
+thigh_length = 16.0
+shin_length = 18.0
+rest_angle = 1.0471975511965976
+step_distance = 16.0
+leg_color = Color(0.6627451, 0.19607843, 0.14901961, 1)
+
+[sub_resource type="Resource" id="Resource_j5lng"]
+script = ExtResource("3_x878j")
+attach_segment = 10
+thigh_length = 16.0
+shin_length = 18.0
+step_distance = 16.0
+group = 1
+leg_color = Color(0.6627451, 0.19607843, 0.14901961, 1)
+
+[sub_resource type="Gradient" id="Gradient_8kge1"]
+colors = PackedColorArray(0.5568628, 0.16470589, 0.12156863, 1, 0.9607843, 0.6901961, 0.25490198, 1)
+
+[sub_resource type="Resource" id="Resource_f2fc2"]
+script = ExtResource("4_h057b")
+attach_segment = 4
+side = 2
+angle = 1.7453292519943295
+shape = 5
+size = 1.8
+color_gradient = SubResource("Gradient_8kge1")
+on_top = false
+motion = 1
+flap_speed = 5.0
+
+[sub_resource type="Gradient" id="Gradient_2rxum"]
+colors = PackedColorArray(0.9607843, 0.9019608, 0.78431374, 1, 1, 0.98039216, 0.9411765, 1)
+
+[sub_resource type="Resource" id="Resource_2oiya"]
+script = ExtResource("4_h057b")
+side = 2
+offset = Vector2(-4, -6)
+angle = 2.792526803190927
+size = 0.8
+color_gradient = SubResource("Gradient_2rxum")
+
+[sub_resource type="Gradient" id="Gradient_kabtg"]
+colors = PackedColorArray(0.9607843, 0.6901961, 0.25490198, 1, 1, 0.9490196, 0.7529412, 1)
+
+[sub_resource type="Resource" id="Resource_447bl"]
+script = ExtResource("4_h057b")
+side = 2
+offset = Vector2(6, -4)
+angle = 1.0471975511965976
+shape = 7
+size = 0.7
+color_gradient = SubResource("Gradient_kabtg")
+motion = 2
+spring_stiffness = 6.0
+
+[sub_resource type="Gradient" id="Gradient_qpwmp"]
+colors = PackedColorArray(0.48235294, 0.14117648, 0.10980392, 1, 0.7529412, 0.22352941, 0.16862746, 1)
+
+[sub_resource type="Resource" id="Resource_fpi5r"]
+script = ExtResource("4_h057b")
+attach_segment = 6
+angle = 3.141592653589793
+shape = 3
+size = 0.6
+color_gradient = SubResource("Gradient_qpwmp")
+
+[sub_resource type="Gradient" id="Gradient_o7el1"]
+colors = PackedColorArray(0.48235294, 0.14117648, 0.10980392, 1, 0.7529412, 0.22352941, 0.16862746, 1)
+
+[sub_resource type="Resource" id="Resource_ppbse"]
+script = ExtResource("4_h057b")
+attach_segment = 9
+angle = 3.141592653589793
+shape = 3
+size = 0.5
+color_gradient = SubResource("Gradient_o7el1")
+
+[sub_resource type="Gradient" id="Gradient_bs2t2"]
+colors = PackedColorArray(0.48235294, 0.14117648, 0.10980392, 1, 0.7529412, 0.22352941, 0.16862746, 1)
+
+[sub_resource type="Resource" id="Resource_mmjjx"]
+script = ExtResource("4_h057b")
+attach_segment = 12
+angle = 3.141592653589793
+shape = 3
+size = 0.4
+color_gradient = SubResource("Gradient_bs2t2")
+
+[resource]
+script = ExtResource("5_ussj7")
+creature_name = "龍"
+growth_mode = 1
+legs_every = 6
+body = SubResource("Resource_qljuc")
+legs = Array[ExtResource("3_x878j")]([SubResource("Resource_hoqrh"), SubResource("Resource_j5lng")])
+eyes = Array[ExtResource("2_3iiej")]([SubResource("Resource_s74qu")])
+ornaments = Array[ExtResource("4_h057b")]([SubResource("Resource_f2fc2"), SubResource("Resource_2oiya"), SubResource("Resource_447bl"), SubResource("Resource_fpi5r"), SubResource("Resource_ppbse"), SubResource("Resource_mmjjx")])

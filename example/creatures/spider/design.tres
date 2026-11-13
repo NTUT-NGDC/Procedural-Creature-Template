@@ -1,0 +1,82 @@
+[gd_resource type="Resource" script_class="CreatureDesign" format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/body_design.gd" id="1_xx017"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_l88sq"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/leg_design.gd" id="3_l1irm"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_rtecn"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature_design.gd" id="5_eoc6j"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_niaeb"]
+
+[sub_resource type="Gradient" id="Gradient_o6jiw"]
+colors = PackedColorArray(0.23137255, 0.2, 0.27450982, 1, 0.3529412, 0.2901961, 0.43137255, 1)
+
+[sub_resource type="Curve" id="Curve_q8qqh"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.45, 0.6), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_1t5ob"]
+script = ExtResource("1_xx017")
+segment_count = 3
+spacing = 16.0
+thickness = 15.0
+width_curve = SubResource("Curve_q8qqh")
+body_gradient = SubResource("Gradient_o6jiw")
+outline_color = Color(0.7882353, 0.72156864, 0.8784314, 1)
+pattern_color = Color(0.5568628, 0.47843137, 0.65882355, 1)
+
+[sub_resource type="Resource" id="Resource_d4qcu"]
+script = ExtResource("2_l88sq")
+count = 6
+size = 0.18
+spread = 0.7
+pupil_color = Color(0.47843137, 0.05882353, 0.12156863, 1)
+
+[sub_resource type="Resource" id="Resource_igkiv"]
+script = ExtResource("3_l1irm")
+attach_segment = 0
+thigh_length = 34.0
+shin_length = 42.0
+rest_angle = 0.5235987755982988
+rest_distance = 0.9
+step_distance = 16.0
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[sub_resource type="Resource" id="Resource_2rbp7"]
+script = ExtResource("3_l1irm")
+thigh_length = 34.0
+shin_length = 42.0
+rest_distance = 0.9
+step_distance = 16.0
+group = 1
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[sub_resource type="Resource" id="Resource_n0gmb"]
+script = ExtResource("3_l1irm")
+thigh_length = 34.0
+shin_length = 42.0
+rest_angle = 1.9198621771937625
+rest_distance = 0.9
+step_distance = 16.0
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[sub_resource type="Resource" id="Resource_nfoc8"]
+script = ExtResource("3_l1irm")
+attach_segment = 2
+thigh_length = 34.0
+shin_length = 42.0
+rest_angle = 2.6179938779914944
+rest_distance = 0.9
+step_distance = 16.0
+group = 1
+leg_width = 3.5
+leg_color = Color(0.43137255, 0.3647059, 0.5176471, 1)
+
+[resource]
+script = ExtResource("5_eoc6j")
+creature_name = "蜘蛛"
+body = SubResource("Resource_1t5ob")
+legs = Array[ExtResource("3_l1irm")]([SubResource("Resource_igkiv"), SubResource("Resource_2rbp7"), SubResource("Resource_n0gmb"), SubResource("Resource_nfoc8")])
+eyes = Array[ExtResource("2_l88sq")]([SubResource("Resource_d4qcu")])

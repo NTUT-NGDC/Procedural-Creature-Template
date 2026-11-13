@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="CreatureDesign" format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/body_design.gd" id="1_t4rov"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_ltn5a"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/leg_design.gd" id="3_nx7ah"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_7du6m"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature_design.gd" id="5_eyxsg"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_o2mlh"]
+
+[sub_resource type="Gradient" id="Gradient_moji8"]
+offsets = PackedFloat32Array(0)
+colors = PackedColorArray(0.30980393, 0.6156863, 0.4117647, 1)
+
+[sub_resource type="Curve" id="Curve_71ldm"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.2, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_kjec8"]
+script = ExtResource("1_t4rov")
+segment_count = 24
+spacing = 12.0
+thickness = 14.0
+width_curve = SubResource("Curve_71ldm")
+swim_amplitude = 6.0
+body_gradient = SubResource("Gradient_moji8")
+
+[sub_resource type="Resource" id="Resource_676io"]
+script = ExtResource("2_ltn5a")
+
+[resource]
+script = ExtResource("5_eyxsg")
+creature_name = "蛇"
+growth_mode = 2
+body = SubResource("Resource_kjec8")
+eyes = Array[ExtResource("2_ltn5a")]([SubResource("Resource_676io")])

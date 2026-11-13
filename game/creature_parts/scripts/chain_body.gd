@@ -317,29 +317,65 @@ static func _make_default_gradient() -> Gradient:
 func _draw() -> void:
 	if _display.size() < 2:
 		return
-	var outline: Array = _build_outline()
-	var points: PackedVector2Array = outline[0]
-	var colors: PackedColorArray = []
-	for t: float in outline[1]:
-		colors.append(_body_color(t))
-
-	# 身體彎太急時，兩側輪廓會交叉，整個多邊形畫不出來。這一幀改成一節一節畫圓
-	if Geometry2D.triangulate_polygon(points).is_empty():
-		_draw_fallback()
-	else:
-		draw_polygon(points, colors)
-		_draw_pattern()
-		if outline_width > 0.0:
-			points.append(points[0])
-			draw_polyline(points, outline_color, outline_width, true)
+	var sides: Array = _build_sides()
+	var last: int = _display.size() - 1
+	# 平常整條身體一次畫完。身體捲起來、跟自己重疊時，輪廓會交叉、畫不出來，
+	# 這時把身體切成幾段，從尾巴往頭一段一段畫：靠頭的那段蓋在靠尾巴的那段上面
+	if not _draw_section(sides, 0, last, last):
+		var size: int = maxi(3, ceili(PI / max_bend))  # 每段最多轉半圈，段自己才不會重疊
+		var start: int = floori(float(last - 1) / size) * size  # 最靠尾巴那段的開頭
+		while start >= 0:
+			var end: int = mini(start + size, last)
+			# 多畫一節蓋住後面那段的切口，接縫才看不出來
+			if not _draw_section(sides, start, mini(end + 1, last), end):
+				_draw_fallback(start, end)
+			start -= size
 
 	if CreatureDebug.bones_visible(self):
 		_draw_bones()
 
 
+## 畫第 from～to 節（含輪廓、花紋、外框）。花紋只畫到 pattern_end，多畫的那一節留給後面那段。
+## 輪廓交叉（這段跟自己重疊）畫不出來時回傳 false
+func _draw_section(sides: Array, from: int, to: int, pattern_end: int) -> bool:
+	var last: int = _display.size() - 1
+	var right: PackedVector2Array = (sides[0] as PackedVector2Array).slice(from * 2, to * 2 + 1)
+	var left: PackedVector2Array = (sides[1] as PackedVector2Array).slice(from * 2, to * 2 + 1)
+	var right_ts: PackedFloat32Array = (sides[2] as PackedFloat32Array).slice(from * 2, to * 2 + 1)
+	left.reverse()
+	var left_ts: PackedFloat32Array = right_ts.duplicate()
+	left_ts.reverse()
+	# 頭、尾巴是圓的：這段有包含頭或尾巴，才加上那一端的圓弧
+	var tail_cap: Array = _cap(last, _local_angle(last) + PI / 2.0, 1.0) if to == last else [PackedVector2Array(), PackedFloat32Array()]
+	var head_cap: Array = _cap(0, _local_angle(0) - PI / 2.0, 0.0) if from == 0 else [PackedVector2Array(), PackedFloat32Array()]
+
+	# 一圈輪廓：右側（頭 → 尾）、尾巴圓弧、左側（尾 → 頭）、頭的圓弧
+	var points: PackedVector2Array = right + tail_cap[0] + left + head_cap[0]
+	if Geometry2D.triangulate_polygon(points).is_empty():
+		return false
+	var colors: PackedColorArray = []
+	for t: float in right_ts + tail_cap[1] + left_ts + head_cap[1]:
+		colors.append(_body_color(t))
+	draw_polygon(points, colors)
+	_draw_pattern(from, pattern_end)
+	if outline_width > 0.0:
+		# 外框只畫在身體的邊上，切開的地方不畫，兩段才接得起來
+		if from == 0 and to == last:
+			points.append(points[0])
+			draw_polyline(points, outline_color, outline_width, true)
+		elif to == last:
+			draw_polyline(right + tail_cap[0] + left, outline_color, outline_width, true)
+		elif from == 0:
+			draw_polyline(left + head_cap[0] + right, outline_color, outline_width, true)
+		else:
+			draw_polyline(right, outline_color, outline_width, true)
+			draw_polyline(left, outline_color, outline_width, true)
+	return true
+
+
 ## 沿著骨架兩側算出輪廓點（本地座標），再讓它變圓滑。
-## 回傳 [輪廓點, 每個點在身體上的位置 0～1（頭 0、尾 1，用來取顏色）]
-func _build_outline() -> Array:
+## 回傳 [右側的點, 左側的點, 每個點在身體上的位置 0～1（頭 0、尾 1，用來取顏色）]，都是從頭到尾
+func _build_sides() -> Array:
 	var count: int = _display.size()
 	var right: PackedVector2Array = []
 	var left: PackedVector2Array = []
@@ -348,24 +384,7 @@ func _build_outline() -> Array:
 		right.append(_side_point(i, PI / 2.0))
 		left.append(_side_point(i, -PI / 2.0))
 		side_ts.append(float(i) / (count - 1))
-	right = _smooth(right)
-	left = _smooth(left)
-	var smooth_ts: PackedFloat32Array = _smooth_ts(side_ts)
-
-	var points: PackedVector2Array = []
-	var ts: PackedFloat32Array = []
-	# 右側：頭 → 尾
-	points.append_array(right)
-	ts.append_array(smooth_ts)
-	# 尾巴的圓弧：從右側繞到左側
-	_add_cap(points, ts, count - 1, _local_angle(count - 1) + PI / 2.0, 1.0)
-	# 左側：尾 → 頭
-	for i: int in range(left.size() - 1, -1, -1):
-		points.append(left[i])
-		ts.append(smooth_ts[i])
-	# 頭的圓弧：從左側繞過前面回到右側
-	_add_cap(points, ts, 0, _local_angle(0) - PI / 2.0, 0.0)
-	return [points, ts]
+	return [_smooth(right), _smooth(left), _smooth_ts(side_ts)]
 
 
 ## 第 i 節往 side 方向（右 +90°、左 -90°）偏一個粗細的點
@@ -373,12 +392,15 @@ func _side_point(i: int, side: float) -> Vector2:
 	return to_local(_display[i]) + Vector2.from_angle(_local_angle(i) + side) * get_width(i)
 
 
-## 在第 i 節畫半圓（從 start_angle 轉半圈），頭和尾巴才會是圓的
-func _add_cap(points: PackedVector2Array, ts: PackedFloat32Array, i: int, start_angle: float, t: float) -> void:
+## 第 i 節的半圓（從 start_angle 轉半圈），頭和尾巴才會是圓的。回傳 [點, 每個點在身體上的位置]
+func _cap(i: int, start_angle: float, t: float) -> Array:
+	var points: PackedVector2Array = []
+	var ts: PackedFloat32Array = []
 	for k: int in range(1, 7):
 		var angle: float = start_angle + PI * k / 7.0
 		points.append(to_local(_display[i]) + Vector2.from_angle(angle) * get_width(i))
 		ts.append(t)
+	return [points, ts]
 
 
 ## 四點細分：身體一側的每兩個點中間插一個點，讓輪廓變圓滑（頭尾的圓弧不用）
@@ -415,58 +437,65 @@ func _body_color(t: float) -> Color:
 	return body_gradient.sample(t) if body_gradient != null else Color("#4f9d69")
 
 
-## 備用畫法（身體捲成一圈、尾巴碰到頭時用）：沿著骨架排一串圓連成管子。
+## 備用畫法（某一段彎太急、輪廓交叉時用）：沿著第 from～to 節的骨架排一串圓連成管子。
 ## 先畫一串比較大的外框色圓，再疊上身體色的圓，看起來跟正常畫法差不多
-func _draw_fallback() -> void:
+func _draw_fallback(from: int, to: int) -> void:
 	var circles: Array[Vector3] = []  # x、y 是位置，z 是半徑
 	var colors: PackedColorArray = []
 	var last: int = _display.size() - 1
-	for i: int in last:
+	for i: int in range(from, to):
 		for step: int in FALLBACK_STEPS:
 			var t: float = float(step) / FALLBACK_STEPS
 			var center: Vector2 = to_local(_display[i].lerp(_display[i + 1], t))
 			circles.append(Vector3(center.x, center.y, lerpf(get_width(i), get_width(i + 1), t)))
 			colors.append(_body_color((i + t) / last))
-	var tail: Vector2 = to_local(_display[last])
-	circles.append(Vector3(tail.x, tail.y, get_width(last)))
-	colors.append(_body_color(1.0))
+	var tail: Vector2 = to_local(_display[to])
+	circles.append(Vector3(tail.x, tail.y, get_width(to)))
+	colors.append(_body_color(float(to) / last))
 	if outline_width > 0.0:
 		for circle: Vector3 in circles:
 			draw_circle(Vector2(circle.x, circle.y), circle.z + outline_width, outline_color, true, -1.0, true)
 	for k: int in range(circles.size() - 1, -1, -1):
 		draw_circle(Vector2(circles[k].x, circles[k].y), circles[k].z, colors[k], true, -1.0, true)
-	_draw_pattern()
+	_draw_pattern(from, to)
 
 
-func _draw_pattern() -> void:
+## 畫第 from 節到 to 節（不含 to）的花紋
+func _draw_pattern(from: int, to: int) -> void:
 	match pattern:
 		Pattern.SPOTS:
-			_draw_spots()
+			_draw_spots(from, to)
 		Pattern.STRIPES:
-			_draw_stripes()
+			_draw_stripes(from, to)
 		Pattern.FIN:
-			_draw_fin()
+			_draw_fin(from, to)
 
 
 ## 斑點：每隔一節畫一個圓點，左右交錯
-func _draw_spots() -> void:
+func _draw_spots(from: int, to: int) -> void:
 	for i: int in range(1, _display.size() - 1, 2):
+		if i < from or i >= to:
+			continue
 		var side: float = 0.4 if i % 4 == 1 else -0.4
 		var center: Vector2 = to_local(_display[i]) + Vector2.from_angle(_local_angle(i) + PI / 2.0) * get_width(i) * side
 		draw_circle(center, get_width(i) * 0.22, pattern_color, true, -1.0, true)
 
 
 ## 條紋：每隔一節畫一條橫線
-func _draw_stripes() -> void:
+func _draw_stripes(from: int, to: int) -> void:
 	for i: int in range(2, _display.size() - 1, 2):
+		if i < from or i >= to:
+			continue
 		var across: Vector2 = Vector2.from_angle(_local_angle(i) + PI / 2.0) * get_width(i) * 0.85
 		var center: Vector2 = to_local(_display[i])
 		draw_line(center + across, center - across, pattern_color, maxf(2.0, get_width(i) * 0.3), true)
 
 
 ## 背鰭：沿著背上中線，每節一個往後的小三角形
-func _draw_fin() -> void:
+func _draw_fin(from: int, to: int) -> void:
 	for i: int in range(1, _display.size() - 1):
+		if i < from or i >= to:
+			continue
 		var center: Vector2 = to_local(_display[i])
 		var back: Vector2 = Vector2.from_angle(_local_angle(i) + PI) * spacing * 0.8
 		var side: Vector2 = Vector2.from_angle(_local_angle(i) + PI / 2.0) * get_width(i) * 0.2

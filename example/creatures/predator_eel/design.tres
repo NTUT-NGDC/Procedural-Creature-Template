@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="CreatureDesign" format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/body_design.gd" id="1_1pyje"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_vao0i"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/leg_design.gd" id="3_noc36"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_gwjc2"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature_design.gd" id="5_c4vej"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_42hjx"]
+
+[sub_resource type="Gradient" id="Gradient_bc3ww"]
+colors = PackedColorArray(0.2901961, 0.1254902, 0.2509804, 1, 0.47843137, 0.18039216, 0.3529412, 1)
+
+[sub_resource type="Curve" id="Curve_cwf8w"]
+_data = [Vector2(0, 0.75), 0.0, 0.0, 0, 0, Vector2(0.2, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_pugxy"]
+script = ExtResource("1_1pyje")
+segment_count = 30
+max_bend = 0.4363323129985824
+thickness = 22.0
+width_curve = SubResource("Curve_cwf8w")
+swim_amplitude = 8.0
+body_gradient = SubResource("Gradient_bc3ww")
+outline_color = Color(1, 0.56078434, 0.6901961, 1)
+pattern = 2
+pattern_color = Color(0.16470589, 0.05882353, 0.14117648, 1)
+
+[sub_resource type="Resource" id="Resource_1ad15"]
+script = ExtResource("2_vao0i")
+size = 0.25
+white_color = Color(1, 0.8156863, 0.8156863, 1)
+pupil_color = Color(0.7529412, 0, 0.16470589, 1)
+
+[resource]
+script = ExtResource("5_c4vej")
+creature_name = "鰻魚"
+body = SubResource("Resource_pugxy")
+eyes = Array[ExtResource("2_vao0i")]([SubResource("Resource_1ad15")])

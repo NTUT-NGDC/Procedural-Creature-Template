@@ -1,0 +1,97 @@
+[gd_resource type="Resource" script_class="CreatureDesign" format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/body_design.gd" id="1_jlkwh"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_6eaap"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/leg_design.gd" id="3_28uhc"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_7ms5b"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature_design.gd" id="5_n24jn"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_s0tos"]
+
+[sub_resource type="Gradient" id="Gradient_nat4m"]
+colors = PackedColorArray(0.60784316, 0.37254903, 0.7529412, 1, 0.47843137, 0.27450982, 0.627451, 1)
+
+[sub_resource type="Curve" id="Curve_0lxsa"]
+_data = [Vector2(0, 0.85), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.6), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_pkhbl"]
+script = ExtResource("1_jlkwh")
+segment_count = 3
+spacing = 10.0
+thickness = 26.0
+width_curve = SubResource("Curve_0lxsa")
+body_gradient = SubResource("Gradient_nat4m")
+outline_color = Color(0.9019608, 0.78431374, 0.9607843, 1)
+pattern_color = Color(0.41568628, 0.20784314, 0.5647059, 1)
+
+[sub_resource type="Resource" id="Resource_yy0vv"]
+script = ExtResource("2_6eaap")
+size = 0.25
+spread = 0.5
+
+[sub_resource type="Gradient" id="Gradient_grbhm"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[sub_resource type="Resource" id="Resource_mabar"]
+script = ExtResource("6_s0tos")
+attach_segment = 1
+reach_angle = 2.0943951023931953
+segment_count = 12
+length = 90.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_grbhm")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[sub_resource type="Gradient" id="Gradient_0m4nt"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[sub_resource type="Resource" id="Resource_b67qh"]
+script = ExtResource("6_s0tos")
+attach_segment = 1
+reach_angle = 2.443460952792061
+segment_count = 12
+length = 100.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_0m4nt")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[sub_resource type="Gradient" id="Gradient_giwcl"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[sub_resource type="Resource" id="Resource_mny1u"]
+script = ExtResource("6_s0tos")
+attach_segment = 1
+reach_angle = 2.792526803190927
+segment_count = 12
+length = 110.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_giwcl")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[sub_resource type="Gradient" id="Gradient_a4l0q"]
+colors = PackedColorArray(0.72156864, 0.47058824, 0.84705883, 1, 0.8509804, 0.65882355, 0.93333334, 1)
+
+[sub_resource type="Resource" id="Resource_621or"]
+script = ExtResource("6_s0tos")
+attach_segment = 1
+reach_angle = 3.0543261909900767
+segment_count = 12
+length = 120.0
+base_width = 5.0
+tip_width = 1.0
+wave_amplitude = 10.0
+color_gradient = SubResource("Gradient_a4l0q")
+sucker_color = Color(0.9411765, 0.84705883, 1, 1)
+
+[resource]
+script = ExtResource("5_n24jn")
+creature_name = "章魚"
+body = SubResource("Resource_pkhbl")
+tentacles = Array[ExtResource("6_s0tos")]([SubResource("Resource_mabar"), SubResource("Resource_b67qh"), SubResource("Resource_mny1u"), SubResource("Resource_621or")])
+eyes = Array[ExtResource("2_6eaap")]([SubResource("Resource_yy0vv")])

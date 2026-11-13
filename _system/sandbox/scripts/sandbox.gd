@@ -3,9 +3,11 @@ extends Node2D
 ##
 ## 左上角可以換生物、換控制方式、讓牠長大或變短。按 F1 顯示骨架。
 ## 按滑鼠右鍵放食物（測試觸手「抓最近的食物」），頭碰到食物也會吃掉。
-## 生物清單會列出下面幾個資料夾裡的 .tscn（根節點要是 Creature）。
+## 生物清單會列出下面幾個資料夾裡的 .tscn（根節點要是 Creature），以及設計檔（<名字>/design.tres）。
 
 const CREATURE_FOLDERS: PackedStringArray = ["res://example/creatures/", "res://_system/sandbox/creatures/"]
+## 設計檔放在這些資料夾的子資料夾裡（<名字>/design.tres）
+const DESIGN_FOLDERS: PackedStringArray = ["res://example/creatures/", "res://my_creature/"]
 ## 控制方式選單的文字，順序跟 Creature 的「控制方式」一樣
 const MODE_NAMES: PackedStringArray = ["玩家（滑鼠）", "玩家（WASD）", "漫遊", "追玩家", "躲玩家"]
 const FOOD_SCRIPT: GDScript = preload("res://_system/sandbox/scripts/sandbox_food.gd")
@@ -30,6 +32,15 @@ func _ready() -> void:
 			if file.get_extension() == "tscn":
 				_paths.append(folder + file)
 				_creature_option.add_item(file.get_basename())
+	# 設計檔：資料夾裡每個子資料夾的 design.tres（範例和社員自己的生物）
+	for folder: String in DESIGN_FOLDERS:
+		if not DirAccess.dir_exists_absolute(folder):
+			continue
+		for sub: String in DirAccess.get_directories_at(folder):
+			var path: String = folder + sub + "/design.tres"
+			if ResourceLoader.exists(path):
+				_paths.append(path)
+				_creature_option.add_item("%s（設計檔）" % sub)
 	for mode_name: String in MODE_NAMES:
 		_mode_option.add_item(mode_name)
 
@@ -55,8 +66,7 @@ func _spawn(index: int) -> void:
 	if _creature != null:
 		_creature.queue_free()
 		_creature = null
-	var scene: PackedScene = load(_paths[index]) as PackedScene
-	var node: Node = scene.instantiate() if scene != null else null
+	var node: Node = _load_creature(_paths[index])
 	if not node is Creature:
 		push_warning("%s 的根節點不是 Creature" % _paths[index])
 		if node != null:
@@ -66,6 +76,16 @@ func _spawn(index: int) -> void:
 	_creature.control_mode = _mode_option.selected
 	_creature.position = get_viewport_rect().get_center()
 	add_child(_creature)
+
+
+## .tscn 就實例化；設計檔就新增一個 Creature、把設計檔放進去
+func _load_creature(path: String) -> Node:
+	var resource: Resource = load(path)
+	if resource is CreatureDesign:
+		var creature := Creature.new()
+		creature.design = resource
+		return creature
+	return (resource as PackedScene).instantiate() if resource is PackedScene else null
 
 
 func _on_mode_selected(index: int) -> void:
