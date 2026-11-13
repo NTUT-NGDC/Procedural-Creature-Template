@@ -201,21 +201,19 @@ func _draw() -> void:
 		_draw_bones(signs)
 
 
-## 畫一隻腳：影子（抬起時）→ 外框 → 大腿、小腿 → 膝蓋、腳掌
+## 畫一隻腳：影子（抬起時）→ 外框 → 大腿＋小腿（一條帶子，膝蓋自然是圓的）→ 腳掌
 func _draw_leg(hip: Vector2, knee: Vector2, foot: Vector2, lift: float, style: Dictionary) -> void:
 	var foot_radius: float = leg_width * 0.8 + lift * lift_height
 	if lift > 0.0:
-		draw_circle(foot + Vector2(2.0, 3.0) * lift_height * lift, foot_radius, Color(0, 0, 0, 0.25), true, -1.0, true)
+		FastDraw.circle(self, foot + Vector2(2.0, 3.0) * lift_height * lift, foot_radius, Color(0, 0, 0, 0.25))
+	var bones := PackedVector2Array([hip, knee, foot])
 	if style.width > 0.0:
-		var outer: float = leg_width + style.width * 2.0
-		draw_line(hip, knee, style.color, outer, true)
-		draw_line(knee, foot, style.color, outer, true)
-		draw_circle(knee, outer / 2.0, style.color, true, -1.0, true)
-		draw_circle(foot, foot_radius + style.width, style.color, true, -1.0, true)
-	draw_line(hip, knee, leg_color, leg_width, true)
-	draw_line(knee, foot, leg_color, leg_width, true)
-	draw_circle(knee, leg_width / 2.0, leg_color, true, -1.0, true)
-	draw_circle(foot, foot_radius, leg_color.lightened(0.15 * lift), true, -1.0, true)
+		var outer: float = leg_width / 2.0 + style.width
+		FastDraw.strip(self, bones, PackedFloat32Array([outer, outer, outer]), PackedColorArray([style.color, style.color, style.color]), false)  # 大腿＋小腿一次畫完（兩端被身體、腳掌蓋住，不用畫圓頭）
+		FastDraw.circle(self, foot, foot_radius + style.width, style.color)
+	var inner: float = leg_width / 2.0
+	FastDraw.strip(self, bones, PackedFloat32Array([inner, inner, inner]), PackedColorArray([leg_color, leg_color, leg_color]), false)
+	FastDraw.circle(self, foot, foot_radius, leg_color.lightened(0.15 * lift))
 
 
 ## 骨架（F1）：理想落腳點（小圈）、跨步距離（大圈）、腳掌到理想點的線

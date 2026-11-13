@@ -46,9 +46,9 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var glow: float = 1.8 + sin(_time * 3.0) * 0.3
-	draw_circle(Vector2.ZERO, RADIUS * glow, Color(color, 0.2), true, -1.0, true)
-	draw_circle(Vector2.ZERO, RADIUS, color, true, -1.0, true)
-	draw_circle(Vector2(-2, -2), RADIUS * 0.35, Color(1, 1, 1, 0.6), true, -1.0, true)
+	FastDraw.circle(self, Vector2.ZERO, RADIUS * glow, Color(color, 0.2))
+	FastDraw.circle(self, Vector2.ZERO, RADIUS, color)
+	FastDraw.circle(self, Vector2(-2, -2), RADIUS * 0.35, Color(1, 1, 1, 0.6))
 
 
 ## Creature.eat() 會呼叫這個：被吃掉就消失

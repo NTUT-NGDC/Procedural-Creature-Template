@@ -2,7 +2,7 @@ extends Node
 ## 生態缸的自動測試：
 ## 1. 開始：玩家生物照設計檔長出來、滑鼠控制，速度和頭的大小來自能力；水流照設定
 ##    大地圖：玩家在地圖中央、鏡頭跟著玩家，到邊緣鏡頭停住、生物游不出地圖
-## 2. 飼料：點一下放一個；最多 max_food 個；會往下沉、沉到底停住；缸裡會自己長（間隔 0 就不長）
+## 2. 飼料：點一下放一個；最多 max_food 個（平衡資料）；會往下沉、沉到底停住；缸裡會自己長（間隔 0 就不長）
 ## 3. 吃東西：頭碰到就吃掉；吃滿「升一級要吃幾個」才升級，升級後照長大方式變大
 ## 4. 水草：有水流時會歪；生物經過被撥開（點在身體外面），生物走了會站回來
 ## 5. 海葵：觸手被生物推開，再彈回來
@@ -50,7 +50,7 @@ func _test_start() -> void:
 
 func _test_world() -> void:
 	print("--- 大地圖 ---")
-	var tank: Tank = await _spawn({"world_size": Vector2(2560, 1440), "auto_food_interval": 0.0})
+	var tank: Tank = await _spawn({"world_size": Vector2(2560, 1440), "food_interval": 0.0})
 	var player: Creature = tank.player
 	_expect(player.global_position.distance_to(Vector2(1280, 720)) < 50.0 and player.bounds == Rect2(0, 0, 2560, 1440), "玩家在地圖中央，範圍是整張地圖")
 	_expect(tank.camera != null and tank.camera.is_current(), "有跟著玩家的鏡頭")
@@ -72,7 +72,7 @@ func _test_world() -> void:
 
 func _test_food() -> void:
 	print("--- 飼料 ---")
-	var tank: Tank = await _spawn({"auto_food_interval": 0.0, "max_food": 5})
+	var tank: Tank = await _spawn({"food_interval": 0.0, "max_food": 5})
 	var foods: Node2D = tank.get_node("%Foods")
 	tank.player.set_process(false)  # 玩家停住，才不會把飼料吃掉
 	tank.player.global_position = Vector2(1200, 100)
@@ -96,7 +96,7 @@ func _test_food() -> void:
 	_expect(is_equal_approx(food.global_position.y, tank.floor_y()), "沉到底就停住")
 	await _free(tank)
 
-	tank = await _spawn({"auto_food_interval": 0.1, "max_food": 50})
+	tank = await _spawn({"food_interval": 0.1, "max_food": 50})
 	tank.player.set_process(false)
 	tank.player.global_position = Vector2(-500, -500)
 	await _seconds(0.55)
@@ -107,7 +107,7 @@ func _test_food() -> void:
 
 func _test_eat_and_grow() -> void:
 	print("--- 吃東西、升級 ---")
-	var tank: Tank = await _spawn({"auto_food_interval": 0.0})
+	var tank: Tank = await _spawn({"food_interval": 0.0})
 	var player: Creature = tank.player
 	player.set_process(false)
 	var cost: int = player.get_stats().level_cost
@@ -128,10 +128,10 @@ func _test_eat_and_grow() -> void:
 
 func _test_weed() -> void:
 	print("--- 水草 ---")
-	var tank: Tank = await _spawn({"flow_strength": 60.0, "auto_food_interval": 0.0})
+	var tank: Tank = await _spawn({"flow_strength": 60.0, "food_interval": 0.0})
 	tank.player.set_process(false)
-	tank.player.global_position = Vector2(-500, -500)
 	var weed: Weed = tank.get_node("%Plants").get_child(3) as Weed
+	tank.player.global_position = _away(weed)
 	var straight_tip: Vector2 = weed.global_position + Vector2.UP.rotated(weed.lean) * weed.height
 	await _seconds(1.0)
 	_expect(weed.get_tip().distance_to(straight_tip) > 3.0, "有水流：水草歪了 %.0f 像素" % weed.get_tip().distance_to(straight_tip))
@@ -149,7 +149,7 @@ func _test_weed() -> void:
 	for point: Vector2 in points:
 		inside = inside or point.distance_to(tank.player.global_position) < tank.player.head_radius - 1.0
 	_expect(not inside, "生物的頭在水草中間：水草被撥開，沒有點在頭裡面")
-	tank.player.global_position = Vector2(-500, -500)
+	tank.player.global_position = _away(weed)
 	tank.player.reset_pose()
 	await _seconds(3.0)
 	_expect(weed.get_tip().distance_to(straight_tip) < 5.0, "生物走了、沒有水流：站回原本的樣子（差 %.1f 像素）" % weed.get_tip().distance_to(straight_tip))
@@ -158,7 +158,7 @@ func _test_weed() -> void:
 
 func _test_anemone() -> void:
 	print("--- 海葵 ---")
-	var tank: Tank = await _spawn({"flow_strength": 0.0, "auto_food_interval": 0.0})
+	var tank: Tank = await _spawn({"flow_strength": 0.0, "food_interval": 0.0})
 	var anemone: Anemone = null
 	for plant: Node in tank.get_node("%Plants").get_children():
 		if plant is Anemone and anemone == null:
@@ -170,7 +170,7 @@ func _test_anemone() -> void:
 	await _seconds(0.3)
 	var pushed: float = anemone.get_arm_tip(anemone.arm_count / 2).distance_to(rest_tip)
 	_expect(pushed > 3.0, "生物碰到觸手：被推開 %.0f 像素" % pushed)
-	tank.player.global_position = Vector2(-500, -500)
+	tank.player.global_position = _away(anemone)
 	tank.player.reset_pose()
 	await _seconds(2.0)
 	_expect(anemone.get_arm_tip(anemone.arm_count / 2).distance_to(rest_tip) < 2.0, "生物走了：彈回原本的位置")
@@ -181,8 +181,9 @@ func _test_plant_limit() -> void:
 	print("--- 水草上限 ---")
 	var tank: Tank = await _spawn({"max_plants": 5})
 	var plants: Array[Node] = tank.get_node("%Plants").get_children()
-	var visible_count: int = plants.filter(func(plant: Node) -> bool: return (plant as Node2D).visible).size()
-	_expect(visible_count == 5, "上限 5：只顯示 5 個（共 %d 個）" % plants.size())
+	var active: Array = tank.get("_active_plants")
+	var hidden_rest: bool = plants.slice(5).all(func(plant: Node) -> bool: return not (plant as Node2D).visible and plant.process_mode == Node.PROCESS_MODE_DISABLED)
+	_expect(active.size() == 5 and hidden_rest, "上限 5：只有 5 個會動、會顯示（共 %d 個）" % plants.size())
 	_expect("太多" in tank.get_node("%HUD").call("get_message"), "顯示提示")
 	await _free(tank)
 
@@ -201,10 +202,20 @@ func _test_no_player() -> void:
 # ---------------------------------------------------------------- 工具
 
 
+## 離植物遠一點、但鏡頭還看得到它的地方（看不到的植物會暫停）
+func _away(plant: Node2D) -> Vector2:
+	return plant.global_position + Vector2(450, -450)
+
+
 func _spawn(settings: Dictionary) -> Tank:
 	var tank: Tank = TANK_SCENE.instantiate()
+	tank.population = 1  # 沒有 NPC，才不會來搶飼料、撞玩家（NPC 在 npc_test 測）
+	tank.balance = CreatureBalance.get_default().duplicate()  # 自己一份，改了不影響別的測試
 	for key: String in settings:
-		tank.set(key, settings[key])
+		if key in tank.balance:
+			tank.balance.set(key, settings[key])  # 飼料的數字在平衡資料裡
+		else:
+			tank.set(key, settings[key])
 	add_child(tank)
 	await _frames(2)
 	return tank

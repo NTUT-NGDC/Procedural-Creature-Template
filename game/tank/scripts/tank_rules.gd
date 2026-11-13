@@ -22,11 +22,25 @@ static func contact(a: Creature, b: Creature, balance: CreatureBalance) -> Conta
 	var body: ChainBody = b.get_body()
 	if body == null:  # 沒有身體：只有頭
 		return Contact.HEAD if a.global_position.distance_to(b.global_position) < a.head_radius + b.head_radius else Contact.NONE
-	var head_joints: int = maxi(ceili(body.joint_count() * balance.head_zone), 1)
-	for i: int in body.joint_count():  # 從頭往尾巴找，先碰到頭就算咬頭
-		if a.global_position.distance_to(body.get_joint(i)) < a.head_radius + body.get_width(i):
+	var points: PackedVector2Array = body.get_points()  # 每一節的位置
+	var head_joints: int = maxi(ceili(points.size() * balance.head_zone), 1)
+	var far: float = a.head_radius + body.thickness * 1.5  # 比最粗的地方還遠，就不用算這一節多粗
+	for i: int in points.size():  # 從頭往尾巴找，先碰到頭就算咬頭
+		var distance: float = a.global_position.distance_to(points[i])
+		if distance < far and distance < a.head_radius + body.get_width(i):
 			return Contact.HEAD if i < head_joints else Contact.BODY
 	return Contact.NONE
+
+
+## 整隻生物（頭＋身體）佔的範圍：先用這個快速排除「離很遠、不可能碰到」的組合，再一節一節檢查
+static func body_rect(creature: Creature) -> Rect2:
+	var body: ChainBody = creature.get_body()
+	var rect := Rect2(creature.global_position, Vector2.ZERO)
+	if body == null:
+		return rect.grow(creature.head_radius)
+	for point: Vector2 in body.get_points():
+		rect = rect.expand(point)
+	return rect.grow(body.thickness + creature.head_radius)
 
 
 ## 撞到別人身體要扣幾級：對方的等級，對方 0 級也扣 1 級

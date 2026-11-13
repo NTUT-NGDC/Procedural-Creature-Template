@@ -133,9 +133,10 @@ func fabrik(chain: PackedVector2Array, base: Vector2, target: Vector2) -> Packed
 func drag(chain: PackedVector2Array, base: Vector2, side_sign: float, delta: float) -> PackedVector2Array:
 	var seg_len: float = length / segment_count
 	var pull: float = 1.0 - exp(-3.0 * delta)  # 每秒被拉回多少
+	var angle: float = _rest_angle(side_sign)
 	chain[0] = base
 	for i: int in range(1, chain.size()):
-		chain[i] = chain[i].lerp(_rest_point(side_sign, i), pull)  # 慢慢回到伸出角度（加上晃動）
+		chain[i] = chain[i].lerp(_rest_point(base, angle, i), pull)  # 慢慢回到伸出角度（加上晃動）
 		chain[i] += WaterFlow.at(chain[i]) * FLOW_PUSH * delta * i / chain.size()  # 被水流推，越末端推越多
 		chain[i] = chain[i - 1] + chain[i - 1].direction_to(chain[i]) * seg_len  # 拉到剛好一節的距離
 	return chain
@@ -209,10 +210,9 @@ func _rest_angle(side_sign: float) -> float:
 	return anchor_angle(attach_segment) + reach_angle * (side_sign if side_sign != 0.0 else 1.0)
 
 
-## 不受力時第 i 節的位置：沿著伸出方向排成一直線，執行時再加一點晃動
-func _rest_point(side_sign: float, i: int) -> Vector2:
-	var angle: float = _rest_angle(side_sign)
-	var point: Vector2 = _root(side_sign) + Vector2.from_angle(angle) * length / segment_count * i
+## 不受力時第 i 節的位置：從根部 root 沿著伸出方向 angle 排成一直線，執行時再加一點晃動
+func _rest_point(root: Vector2, angle: float, i: int) -> Vector2:
+	var point: Vector2 = root + Vector2.from_angle(angle) * length / segment_count * i
 	if Engine.is_editor_hint():
 		return point
 	var wave: float = sin(_time * wave_speed - i * 0.5) * wave_amplitude * float(i) / segment_count
@@ -230,7 +230,7 @@ func reset_pose() -> void:
 	for side_sign: float in signs:
 		var chain: PackedVector2Array = []
 		for i: int in segment_count + 1:
-			chain.append(_rest_point(side_sign, i))
+			chain.append(_rest_point(_root(side_sign), _rest_angle(side_sign), i))
 		_chains.append(chain)
 		_targets.append(chain[-1])
 		_has_target.append(false)
@@ -268,14 +268,14 @@ func _width_at(i: int) -> float:
 	return lerpf(base_width, tip_width, float(i) / segment_count)
 
 
-## 畫一條觸手：每節一段粗線＋關節的圓。color 是 null 就用漸層色，extra 是外框多出來的寬度
+## 畫一條觸手：根部粗、末端細的一條帶子（FastDraw.strip()）。color 是 null 就用漸層色，extra 是外框多出來的寬度
 func _draw_strand(points: PackedVector2Array, extra: float, color: Variant) -> void:
+	var widths := PackedFloat32Array()
+	var colors := PackedColorArray()
 	for i: int in points.size():
-		var fill: Color = color if color != null else _gradient_color(float(i) / segment_count)
-		var width: float = _width_at(i) + extra
-		draw_circle(points[i], width, fill, true, -1.0, true)
-		if i < points.size() - 1:
-			draw_line(points[i], points[i + 1], fill, width + _width_at(i + 1) + extra, true)  # 兩端的粗細加起來＝線寬
+		widths.append(_width_at(i) + extra)
+		colors.append(color if color != null else _gradient_color(float(i) / segment_count))
+	FastDraw.strip(self, points, widths, colors)
 
 
 ## 吸盤：沿著觸手內側，每隔一節一個小圓點
@@ -286,7 +286,7 @@ func _draw_suckers(points: PackedVector2Array, side_sign: float) -> void:
 		if width < 2.0:
 			continue
 		var across: Vector2 = (points[i + 1] - points[i]).normalized().rotated(PI / 2.0 * inner)
-		draw_circle(points[i] + across * width * 0.45, width * 0.35, sucker_color, true, -1.0, true)
+		FastDraw.circle(self, points[i] + across * width * 0.45, width * 0.35, sucker_color)
 
 
 func _gradient_color(t: float) -> Color:

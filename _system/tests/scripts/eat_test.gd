@@ -209,8 +209,10 @@ func _place(creature: Creature, at: Vector2, heading: float) -> void:
 
 func _spawn() -> Tank:
 	var tank: Tank = TANK_SCENE.instantiate()
-	tank.auto_food_interval = 0.0
+	tank.balance = CreatureBalance.get_default().duplicate()  # 自己一份，改了不影響別的測試
+	tank.balance.food_interval = 0.0
 	tank.flow_strength = 0.0
+	tank.population = 1  # 沒有 NPC（NPC 在 npc_test 測）
 	add_child(tank)
 	await _frames(2)
 	tank.player.set_process(false)

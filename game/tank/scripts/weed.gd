@@ -165,21 +165,26 @@ func _draw() -> void:
 	if _points.size() < 2:
 		return
 	var count: int = _points.size()
-	for i: int in count - 1:
+	var local := PackedVector2Array()
+	var widths := PackedFloat32Array()
+	var colors := PackedColorArray()
+	for i: int in count:
 		var t: float = float(i) / (count - 1)
-		var a: Vector2 = to_local(_points[i])
-		var b: Vector2 = to_local(_points[i + 1])
-		var width: float = lerpf(base_width, tip_width, t)
-		var color: Color = base_color.lerp(tip_color, t)
-		draw_line(a, b, color, width * 2.0, true)
-		draw_circle(b, lerpf(base_width, tip_width, float(i + 1) / (count - 1)), base_color.lerp(tip_color, float(i + 1) / (count - 1)), true, -1.0, true)
+		local.append(to_local(_points[i]))
+		widths.append(lerpf(base_width, tip_width, t))
+		colors.append(base_color.lerp(tip_color, t))
+	FastDraw.strip(self, local, widths, colors)  # 莖：根部粗、尖端細，一次畫完
+	for i: int in count - 1:
+		var a: Vector2 = local[i]
+		var b: Vector2 = local[i + 1]
+		var width: float = widths[i]
+		var color: Color = colors[i]
 		# 葉子：每隔一節，左右交錯長一片
 		if i % 2 == 1:
 			var side: float = 1.0 if i % 4 == 1 else -1.0
 			var along: Vector2 = (b - a).normalized()
 			var leaf_dir: Vector2 = along.rotated(side * 0.9)
 			_draw_leaf(b, leaf_dir, width * 3.0, color.lightened(0.15))
-	draw_circle(to_local(_points[0]), base_width, base_color, true, -1.0, true)
 
 
 ## 一片葉子：細長的菱形

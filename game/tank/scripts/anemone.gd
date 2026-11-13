@@ -113,9 +113,14 @@ func get_arm_tip(k: int) -> Vector2:
 
 func _draw() -> void:
 	for arm: PackedVector2Array in _arms:
-		for i: int in arm.size() - 1:
+		var local := PackedVector2Array()
+		var widths := PackedFloat32Array()
+		var colors := PackedColorArray()
+		for i: int in arm.size():
 			var t: float = float(i) / (arm.size() - 1)
-			draw_line(to_local(arm[i]), to_local(arm[i + 1]), arm_base_color.lerp(arm_tip_color, t), arm_width * (1.0 - t * 0.5) * 2.0, true)
-		draw_circle(to_local(arm[-1]), arm_width * 0.8, arm_tip_color, true, -1.0, true)  # 圓圓的尖端
-	draw_circle(Vector2.ZERO, body_radius, body_color, true, -1.0, true)
-	draw_circle(Vector2(-body_radius * 0.3, -body_radius * 0.3), body_radius * 0.35, body_color.lightened(0.25), true, -1.0, true)
+			local.append(to_local(arm[i]))
+			widths.append(arm_width * (1.0 - t * 0.5))
+			colors.append(arm_base_color.lerp(arm_tip_color, t))
+		FastDraw.strip(self, local, widths, colors)  # 一條觸手一次畫完，尖端是圓的
+	FastDraw.circle(self, Vector2.ZERO, body_radius, body_color)
+	FastDraw.circle(self, Vector2(-body_radius * 0.3, -body_radius * 0.3), body_radius * 0.35, body_color.lightened(0.25))

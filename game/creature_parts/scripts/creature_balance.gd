@@ -73,6 +73,12 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 ## 能力對成本的影響：四種能力（各 0～1）加起來 × 這個數字，再乘在基本成本上
 @export_range(0, 5, 0.05) var cost_per_power: float = 0.5
 
+@export_group("飼料")
+## 生態缸裡自己長出飼料的間隔（秒），0 是不會自己長。地圖越大、生物越多，要長得越快
+@export_range(0, 30, 0.05) var food_interval: float = 0.4
+## 場上最多幾個飼料（生物掉出來的不算在內）
+@export_range(0, 300, 1) var max_food: int = 80
+
 @export_group("大吃小")
 ## 吃得掉的倍數：體型至少是對方的幾倍才吃得掉（差不多大的碰到會彈開）
 @export_range(1.0, 3.0, 0.05) var eat_ratio: float = 1.2

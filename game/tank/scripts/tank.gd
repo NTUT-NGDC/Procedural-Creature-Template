@@ -3,6 +3,7 @@ class_name Tank
 extends Node2D
 ## 生態缸：你的生物跟著滑鼠游，點一下放飼料，吃滿就升級，照長大方式長大。
 ## 大吃小：咬到比你小的生物的頭就吃掉牠；頭撞到別人的身體會掉級；按住空白鍵或右鍵加速。
+## NPC 大大小小：比自己小的追、比自己大的逃（大腦寫在 npc_brain.gd），被吃掉過一下會再生一隻。
 ## 規則寫在 tank_rules.gd，這裡是「裁判」：每一幀檢查每一對生物，照規則處理。
 ## 水流推著水草、海葵、觸手、飼料，整缸一起晃。沒有輸贏、沒有時間限制。
 ##
@@ -12,6 +13,10 @@ extends Node2D
 ## 水草、海葵預先擺在 Plants 節點底下，可以在編輯器裡直接拖、加、刪（數量有上限）。
 ## 這個場景的設定由社長維護，社員不用改。
 
+## 畫面外多遠以內還是照常畫、照常動（像素），太近的話游進畫面時會看到東西突然出現
+const OFFSCREEN_MARGIN: float = 100.0
+## 生物的腳、觸手會伸出身體外面多遠（像素），判斷生物在不在畫面裡時加上去
+const PART_REACH: float = 150.0
 ## 生物掉出來的飼料，幾秒之後才能吃
 const DROPPED_FOOD_WAIT: float = 0.6
 const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %d），多的先藏起來，網頁版才跑得動"
@@ -21,6 +26,8 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 @export var game_name: String = "生態缸"
 ## 玩家生物（設計檔）。從標題畫面開始時，會換成標題畫面設定的設計檔
 @export var player_design: CreatureDesign
+## 平衡資料：能力、升級、大吃小、飼料的所有數字。空的就用預設的 game/creature_parts/data/balance.tres
+@export var balance: CreatureBalance
 ## 地圖大小（像素）：一個畫面是 1280 × 720。鏡頭跟著玩家走，到邊緣就停住
 @export var world_size: Vector2 = Vector2(2560, 1440):
 	set(value):
@@ -28,12 +35,31 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 		if is_node_ready():
 			_water.set("world_size", world_size)
 
+@export_group("NPC")
+## NPC 用哪些設計檔（每次隨機挑一份）。放不同長大方式、不同零件的，缸裡才熱鬧
+@export var npc_designs: Array[CreatureDesign] = [
+	preload("res://example/creatures/centipede/design.tres"),
+	preload("res://example/creatures/doodle/design.tres"),
+	preload("res://example/creatures/dragon/design.tres"),
+	preload("res://example/creatures/jellyfish/design.tres"),
+	preload("res://example/creatures/octopus/design.tres"),
+	preload("res://example/creatures/predator_eel/design.tres"),
+	preload("res://example/creatures/snake/design.tres"),
+	preload("res://example/creatures/spider/design.tres"),
+]
+## 缸裡總共幾隻生物（玩家＋NPC）：NPC 的數量＝這個數字－玩家人數
+@export_range(1, 40, 1) var population: int = 10
+## 網頁版缸裡最多幾隻（網頁版比較慢，會自動減少到這個數字）
+@export_range(1, 40, 1) var web_population: int = 6
+## NPC 最高幾級（吃再多也不會再長大），避免整缸越長越大
+@export_range(0, 50, 1) var npc_max_level: int = 12
+## NPC 一出生的等級：玩家的等級加減這麼多（隨機），缸裡才一直有比你大的和比你小的
+@export_range(0, 20, 1) var npc_level_spread: int = 3
+## NPC 被吃掉之後，幾秒再生一隻
+@export_range(0, 30, 0.5) var npc_respawn_time: float = 3.0
+
 @export_group("食物")
-## 場上最多幾個飼料
-@export_range(0, 200, 1) var max_food: int = 40
-## 缸裡自己長出食物的間隔（秒），0 是不會自己長
-@export_range(0, 30, 0.1) var auto_food_interval: float = 1.5
-## 飼料的顏色
+## 飼料的顏色（多久長一個、最多幾個在平衡資料裡）
 @export var food_color: Color = Color("#ffd84d")
 
 @export_group("水流")
@@ -70,12 +96,17 @@ var camera: Camera2D
 var best_level: int = 0
 var kills: int = 0
 var _food_timer: float = 0.0
+var _respawn_timer: float = 0.0
+## 沒有被上限藏起來的水草、海葵（畫面外的會暫停）
+var _active_plants: Array[Node2D] = []
 
 
 func _ready() -> void:
 	_water.set("world_size", world_size)
 	if Engine.is_editor_hint():
 		return  # 編輯器裡只畫水和水草，不開始遊戲
+	if OS.has_feature("web"):
+		population = mini(population, web_population)
 	WaterFlow.strength = flow_strength
 	WaterFlow.wave_size = flow_wave_size
 	WaterFlow.speed = flow_speed
@@ -85,6 +116,8 @@ func _ready() -> void:
 	_limit_plants()
 	_create_camera()
 	_spawn_player()
+	for i: int in npc_target_count():
+		spawn_npc()
 
 
 func _exit_tree() -> void:
@@ -96,10 +129,12 @@ func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 	_grow_food(delta)
+	_keep_population(delta)
 	_eat_food()
 	_judge_creatures()
 	_update_marks()
 	_follow_player()
+	_skip_offscreen()
 	_update_hud()
 
 
@@ -128,9 +163,60 @@ func _spawn_player() -> void:
 	camera.reset_smoothing()
 
 
+## NPC 該有幾隻：缸裡總數－玩家人數
+func npc_target_count() -> int:
+	return maxi(population - get_tree().get_node_count_in_group("player"), 0)
+
+
+## 現在有幾隻 NPC（被吃掉、還沒消失的不算）
+func npc_count() -> int:
+	var count: int = 0
+	for node: Node in get_tree().get_nodes_in_group("npc"):
+		if not node.is_queued_for_deletion():
+			count += 1
+	return count
+
+
+## NPC 不夠就倒數，時間到再生一隻（一次一隻）
+func _keep_population(delta: float) -> void:
+	if npc_count() >= npc_target_count():
+		_respawn_timer = npc_respawn_time
+		return
+	_respawn_timer -= delta
+	if _respawn_timer <= 0.0:
+		_respawn_timer = npc_respawn_time
+		spawn_npc()
+
+
+## 生一隻 NPC：隨機挑一份設計檔，等級在玩家附近，放在離大家遠的地方，用 npc_brain.gd 的大腦
+func spawn_npc() -> Creature:
+	if npc_designs.is_empty():
+		return null
+	var npc := Creature.new()
+	npc.design = npc_designs.pick_random()
+	npc.control_mode = Creature.Mode.WANDER
+	npc.max_level = npc_max_level
+	var base: int = player.level if player != null else 0
+	npc.level = clampi(base + randi_range(-npc_level_spread, npc_level_spread), 0, npc_max_level)
+	npc.position = _safe_spot()
+	npc.heading = randf() * TAU
+	npc.brain = func() -> Dictionary: return NpcBrain.choose_target(npc, get_creatures(), _foods.get_children())
+	npc.add_to_group("npc")
+	add_creature(npc)
+	return npc
+
+
+## 平衡資料（沒有指定就用預設的）
+func get_balance() -> CreatureBalance:
+	if balance == null:
+		balance = CreatureBalance.get_default()
+	return balance
+
+
 ## 把生物放進缸裡：設好範圍，加速消耗的飼料從尾巴掉出來
 func add_creature(creature: Creature) -> void:
 	creature.bounds = world_rect()
+	creature.balance = get_balance()
 	creature.boost_spent.connect(func(at: Vector2) -> void: drop_food(at, true))
 	_creatures.add_child(creature)
 
@@ -151,10 +237,15 @@ func get_creatures() -> Array[Creature]:
 ## 每一對生物：A 的頭碰到 B 的頭 → 大的吃掉小的、差不多大就彈開；A 的頭撞到 B 的身體 → A 掉級
 func _judge_creatures() -> void:
 	var creatures: Array[Creature] = get_creatures()
+	var rects: Dictionary = {}  # 每隻生物佔的範圍，先算好
+	for creature: Creature in creatures:
+		rects[creature] = TankRules.body_rect(creature)
 	for a: Creature in creatures:
 		for b: Creature in creatures:
 			if a == b or a.is_invincible() or b.is_invincible() or a.is_queued_for_deletion() or b.is_queued_for_deletion():
 				continue
+			if not (rects[b] as Rect2).has_point(a.global_position):
+				continue  # A 的頭離 B 很遠：不可能碰到
 			var balance: CreatureBalance = a.get_balance()
 			match TankRules.contact(a, b, balance):
 				TankRules.Contact.HEAD:
@@ -215,7 +306,7 @@ func _nearest_joint(creature: Creature, to: Vector2) -> Vector2:
 ## 玩家被吃掉：回到 0 級，在附近沒有大生物的地方重生，無敵一下
 func _respawn_player() -> void:
 	player.set_level(0)
-	player.global_position = _safe_spot()
+	player.global_position = _safe_spot(player)
 	player.knockback = Vector2.ZERO
 	player.reset_pose()
 	player.invincible_time = player.get_balance().respawn_invincible
@@ -224,15 +315,15 @@ func _respawn_player() -> void:
 	_hud.call("show_message", "被吃掉了！從 0 級重新開始", 2.5)
 
 
-## 找一個離其他生物遠一點的地方（試幾次，找最遠的）
-func _safe_spot() -> Vector2:
+## 找一個離其他生物（ignore 以外）遠一點的地方（試幾次，找最遠的）
+func _safe_spot(ignore: Creature = null) -> Vector2:
 	var best: Vector2 = world_size / 2.0
 	var best_distance: float = -1.0
 	for i: int in 20:
 		var spot := Vector2(randf_range(100.0, world_size.x - 100.0), randf_range(100.0, floor_y() - 100.0))
 		var nearest: float = INF
 		for creature: Creature in get_creatures():
-			if creature != player:
+			if creature != ignore:
 				nearest = minf(nearest, creature.global_position.distance_to(spot))
 		if nearest > best_distance:
 			best = spot
@@ -286,7 +377,7 @@ func _follow_player() -> void:
 
 ## 放一個飼料（場上太多就不放；force 是生物掉出來的，一定放）。回傳放了沒
 func drop_food(at: Vector2, force: bool = false) -> bool:
-	if _foods.get_child_count() >= max_food and not force:
+	if _foods.get_child_count() >= get_balance().max_food and not force:
 		return false
 	var food := Food.new()
 	food.color = food_color
@@ -307,26 +398,27 @@ func _scatter_food(along: PackedVector2Array, count: int) -> void:
 
 ## 缸裡自己長食物：每隔一段時間，在地圖上隨機的地方冒出一個
 func _grow_food(delta: float) -> void:
-	if auto_food_interval <= 0.0:
+	var interval: float = get_balance().food_interval
+	if interval <= 0.0:
 		return
 	_food_timer += delta
-	while _food_timer >= auto_food_interval:
-		_food_timer -= auto_food_interval
+	while _food_timer >= interval:
+		_food_timer -= interval
 		drop_food(Vector2(randf_range(40.0, world_size.x - 40.0), randf_range(40.0, floor_y() - 40.0)))
 
 
 ## 頭碰到飼料就吃掉（每隻生物都一樣，之後的 NPC 也用這個）
 func _eat_food() -> void:
-	for node: Node in _creatures.get_children():
-		var creature: Creature = node as Creature
-		if creature == null or creature.is_queued_for_deletion():
-			continue
-		for food: Node in _foods.get_children():
-			var item: Food = food as Food
-			if item == null or not item.is_in_group("food"):
-				continue  # 已經被吃掉（或被觸手抓走）了
-			if item.global_position.distance_to(creature.global_position) <= creature.head_radius + Food.RADIUS:
-				creature.eat(item)
+	# 先把「現在能吃的飼料」和位置整理成一份（飼料很多、生物很多時，比每隻生物都重找一次快）
+	var foods: Array[Node] = get_tree().get_nodes_in_group("food")
+	var spots := PackedVector2Array()
+	for food: Node in foods:
+		spots.append((food as Node2D).global_position)
+	for creature: Creature in get_creatures():
+		var reach: float = creature.head_radius + Food.RADIUS
+		for i: int in spots.size():
+			if spots[i].distance_to(creature.global_position) <= reach and foods[i].is_in_group("food"):
+				creature.eat(foods[i])  # 吃掉之後就不在 "food" 群組了，別隻不會再吃到
 
 
 ## 地板的高度（全局 y）：飼料沉到這裡停
@@ -337,9 +429,26 @@ func floor_y() -> float:
 # ---------------------------------------------------------------- 其他
 
 
+## 畫面外的東西不用畫：生物、飼料藏起來（還是照常游、照常吃，只有腳、觸手、眼睛這些裝飾的動作先停），
+## 水草、海葵連動都先停
+## （地圖是畫面的好幾倍大，全部都畫、都動，網頁版會跑不動）
+func _skip_offscreen() -> void:
+	var view := Rect2(camera.get_screen_center_position() - TankWater.SCREEN / 2.0, TankWater.SCREEN).grow(OFFSCREEN_MARGIN)
+	for plant: Node2D in _active_plants:
+		var on_screen: bool = view.has_point(plant.global_position)
+		plant.visible = on_screen
+		plant.process_mode = Node.PROCESS_MODE_INHERIT if on_screen else Node.PROCESS_MODE_DISABLED
+	for creature: Creature in get_creatures():
+		creature.set_on_screen(view.intersects(TankRules.body_rect(creature).grow(PART_REACH)))
+	for food: Node in _foods.get_children():
+		(food as Node2D).visible = view.has_point((food as Node2D).global_position)
+
+
 ## 水草、海葵太多時，多的藏起來、不動，並顯示提示
 func _limit_plants() -> void:
 	var plants: Array[Node] = _plants.get_children()
+	for i: int in mini(plants.size(), max_plants):
+		_active_plants.append(plants[i] as Node2D)
 	if plants.size() <= max_plants:
 		return
 	for i: int in range(max_plants, plants.size()):

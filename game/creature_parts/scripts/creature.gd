@@ -74,6 +74,11 @@ var _current_speed: float = 0.0
 ## 漫遊：多久之後換方向、要往哪個方向
 var _wander_timer: float = 0.0
 var _wander_angle: float = 0.0
+## 電腦控制的「大腦」：有設定的話，每一幀問它要往哪走（回傳跟 _get_move_target() 一樣的字典，
+## 回傳空的字典就照控制方式走）。生態缸的 NPC 用 game/tank/scripts/npc_brain.gd
+var brain: Callable
+## 最高幾級（-1 是沒有上限）：到了就不會再長大。生態缸的 NPC 用
+var max_level: int = -1
 ## 生態缸裡給玩家看的標記（Mark）：眼睛、身體會照這個換顏色
 var mark: int = Mark.NONE
 ## 無敵還剩幾秒：不會被撞、被吃，身體一閃一閃
@@ -90,6 +95,9 @@ var bounds: Rect2 = Rect2()
 var balance: CreatureBalance
 ## 現在的形狀：設計檔照現在的等級長大後的樣子（CreatureGrowth.shape_at() 的結果）。沒有設計檔是 null
 var shape: CreatureDesign
+## 所有的腳（_get_legs() 用），_legs_dirty 是「零件變了，要重找」
+var _legs: Array[IKLeg] = []
+var _legs_dirty: bool = true
 ## 現在的能力（apply_design() 時算好）
 var _stats: CreatureStats
 ## 依設計檔長出來的節點：身體、零件（順序跟 shape.all_parts() 一樣）
@@ -121,6 +129,10 @@ func _process(delta: float) -> void:
 
 ## 回傳這一幀想往哪個角度走、想走多快、要不要加速：{"angle": 弧度, "speed": 像素／秒, "boost": 要不要加速}
 func _get_move_target() -> Dictionary:
+	if brain.is_valid():
+		var decision: Dictionary = brain.call()
+		if not decision.is_empty():
+			return decision
 	match control_mode:
 		Mode.MOUSE:
 			var to_mouse: Vector2 = get_global_mouse_position() - global_position
@@ -251,6 +263,8 @@ func eat(food: Node) -> void:
 	if shape == null:
 		grow(1)
 		return
+	if max_level >= 0 and level >= max_level:
+		return  # 已經最高級了：吃了也不會再長大
 	food_progress += 1
 	if food_progress >= get_stats().level_cost:
 		food_progress = 0
@@ -280,10 +294,36 @@ func set_level(new_level: int) -> void:
 ## 換腳協調：另一組有腳在空中時回傳 false（group 這組的腳先等一下）。
 ## 腳分 A、B 兩組輪流走，看起來才像真的在走路
 func can_step(group: int) -> bool:
-	for node: Node in find_children("*", "", true, false):
-		if node is IKLeg and (node as IKLeg).is_group_stepping(1 - group):
+	for leg: IKLeg in _get_legs():
+		if leg.is_group_stepping(1 - group):
 			return false
 	return true
+
+
+## 生物在不在畫面裡：不在的話藏起來、裝飾的動作（腳、觸手、眼睛、掛件）先停，省下畫圖和計算。
+## 身體還是照常跟著頭走（吃東西、碰撞要用）；會抓食物的觸手也照常動。回到畫面時零件重擺姿勢
+func set_on_screen(on_screen: bool) -> void:
+	if visible == on_screen:
+		return
+	visible = on_screen
+	for node: Node in find_children("*", "", true, false):
+		var part: CreaturePart = node as CreaturePart
+		if part == null or (part is Tentacle and (part as Tentacle).behavior == Tentacle.Behavior.GRAB_FOOD):
+			continue
+		part.process_mode = Node.PROCESS_MODE_INHERIT if on_screen else Node.PROCESS_MODE_DISABLED
+		if on_screen:
+			part.reset_pose()
+
+
+## 這隻生物所有的腳（記起來，零件變了才重找；每一幀每隻腳都要問，一直重找很慢）
+func _get_legs() -> Array[IKLeg]:
+	if _legs_dirty:
+		_legs.clear()
+		for node: Node in find_children("*", "", true, false):
+			if node is IKLeg:
+				_legs.append(node as IKLeg)
+		_legs_dirty = false
+	return _legs
 
 
 ## 變短：等級 -amount，通知所有零件，發出 hurt 訊號；長度短到剩 2 時再發出 died
@@ -337,6 +377,7 @@ func apply_design() -> void:
 		shape = null
 		_stats = null
 		return
+	_legs_dirty = true
 	shape = CreatureGrowth.shape_at(design, level, get_balance())
 	_stats = CreatureStats.compute(shape, get_balance())
 	_apply_abilities()

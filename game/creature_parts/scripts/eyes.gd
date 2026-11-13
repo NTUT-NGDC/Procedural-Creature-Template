@@ -158,6 +158,6 @@ func _draw() -> void:
 			var across: Vector2 = Vector2.from_angle(anchor_angle(attach_segment) - global_rotation + PI / 2.0) * white_radius
 			draw_line(center - across, center + across, style.color, maxf(1.5, white_radius * 0.3), true)
 			continue
-		draw_circle(center, white_radius, _white(), true, -1.0, true)
+		FastDraw.circle(self, center, white_radius, _white())
 		var local_look: Vector2 = look.rotated(-global_rotation)
-		draw_circle(center + local_look * white_radius * 0.35, white_radius * 0.5, pupil_color, true, -1.0, true)
+		FastDraw.circle(self, center + local_look * white_radius * 0.35, white_radius * 0.5, pupil_color)

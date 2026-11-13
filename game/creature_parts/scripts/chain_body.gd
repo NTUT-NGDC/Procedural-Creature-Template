@@ -189,6 +189,13 @@ func on_grow(level: int) -> void:
 
 
 ## 現在每一節的位置（全局座標），[0] 是頭
+## 每一節現在畫在哪裡（全局座標，跟 get_joint() 一樣）一次拿全部。很多地方每一幀都要一節一節看時用這個比較快
+func get_points() -> PackedVector2Array:
+	if _display.is_empty():
+		return PackedVector2Array([_get_head_position()])
+	return _display
+
+
 func get_joints() -> PackedVector2Array:
 	return _joints.duplicate()
 
@@ -360,7 +367,7 @@ func _draw_prey_glow() -> void:
 		return
 	for i: int in _display.size():
 		var at: Vector2 = to_local(_display[i])
-		draw_circle(at, get_width(i) + PREY_GLOW_WIDTH, PREY_COLOR, true, -1.0, true)
+		FastDraw.circle(self, at, get_width(i) + PREY_GLOW_WIDTH, PREY_COLOR)
 		if i > 0:
 			draw_line(to_local(_display[i - 1]), at, PREY_COLOR, (get_width(i) + PREY_GLOW_WIDTH) * 2.0, true)
 
@@ -484,9 +491,9 @@ func _draw_fallback(from: int, to: int) -> void:
 	colors.append(_body_color(float(to) / last))
 	if outline_width > 0.0:
 		for circle: Vector3 in circles:
-			draw_circle(Vector2(circle.x, circle.y), circle.z + outline_width, outline_color, true, -1.0, true)
+			FastDraw.circle(self, Vector2(circle.x, circle.y), circle.z + outline_width, outline_color)
 	for k: int in range(circles.size() - 1, -1, -1):
-		draw_circle(Vector2(circles[k].x, circles[k].y), circles[k].z, colors[k], true, -1.0, true)
+		FastDraw.circle(self, Vector2(circles[k].x, circles[k].y), circles[k].z, colors[k])
 	_draw_pattern(from, to)
 
 
@@ -508,7 +515,7 @@ func _draw_spots(from: int, to: int) -> void:
 			continue
 		var side: float = 0.4 if i % 4 == 1 else -0.4
 		var center: Vector2 = to_local(_display[i]) + Vector2.from_angle(_local_angle(i) + PI / 2.0) * get_width(i) * side
-		draw_circle(center, get_width(i) * 0.22, pattern_color, true, -1.0, true)
+		FastDraw.circle(self, center, get_width(i) * 0.22, pattern_color)
 
 
 ## 條紋：每隔一節畫一條橫線
