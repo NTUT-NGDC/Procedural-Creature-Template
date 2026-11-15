@@ -1,0 +1,71 @@
+[gd_resource type="Resource" script_class="TutorialSteps" format=3 uid="uid://k12afxydhqhu"]
+
+[ext_resource type="Script" uid="uid://c6yayqqudxs3d" path="res://lesson/tutorial/scripts/tutorial_steps.gd" id="1_steps"]
+[ext_resource type="Script" uid="uid://c8gqg50ji0tsl" path="res://lesson/tutorial/scripts/tutorial_step.gd" id="2_step"]
+
+[sub_resource type="Resource" id="Step_1"]
+script = ExtResource("2_step")
+title = "1. 取自己的名字"
+description = "左上「讀取……」選一隻範例（或按「新的」），在「名字」欄改成你的生物的名字。"
+hint = "名字可以用中文。旁邊的「資料夾」要用英文，存檔時才用得到。"
+done_text = "這隻就是你的生物了，接下來邊做實驗邊改它。"
+
+[sub_resource type="Resource" id="Step_2"]
+script = ExtResource("2_step")
+title = "2. 把身體折斷（鏈條跟隨）"
+description = "「身體」分頁把「最大彎曲角」拉到 150 以上，滑鼠快速畫小圈，看身體折成一團；看完調回 60 以下。"
+hint = "每一節只會跟著前一節走。「最大彎曲角」是每節最多能跟前一節彎幾度，180 等於不限制。"
+done_text = "每一節只能跟前一節彎一點點（角度限制），身體才會滑順，不會折成一團。"
+
+[sub_resource type="Resource" id="Step_3"]
+script = ExtResource("2_step")
+title = "3. 改出自己的身體"
+description = "在「身體」分頁改出跟一開始不一樣的身體：節數、間距、粗細、粗細形狀、顏色、花紋、外框，至少改 2 種。"
+hint = "節數多、間距大，身體就長，轉彎會變慢。邊改邊看左下的能力怎麼變。"
+done_text = "身體的長短、粗細決定體型和轉向：外觀跟能力是綁在一起的。"
+
+[sub_resource type="Resource" id="Step_4"]
+script = ExtResource("2_step")
+title = "4. 觸手跟不上（FABRIK）"
+description = "「觸手」分頁加一隻觸手，「行為」選「指向滑鼠」，把「FABRIK 次數」拉到 1，看它跟不跟得上；看完調回 3 以上。"
+hint = "FABRIK：從尖端往根部拉一趟、再從根部往尖端推一趟，算一次。滑鼠移遠移近都試試。"
+done_text = "FABRIK 來回拉幾趟，觸手尖端就能準確碰到目標；次數太少會跟不上。"
+
+[sub_resource type="Resource" id="Step_5"]
+script = ExtResource("2_step")
+title = "5. 腳打直、腳亂走（Two-Bone IK＋換腳）"
+description = "「腳」分頁要有 2 組以上的腳。① 一組腳的「落腳距離」拉到 1 看腳打直，再調回 0.9 以下。② 每組腳的「分組」都設成同一組看腳怎麼走，再改回 A、B 都有。"
+hint = "腳掌釘在地上，離理想落腳點太遠才跨一步。按「新增」或「複製」加腳。"
+done_text = "膝蓋的位置是用大腿、小腿的長度算出來的（Two-Bone IK）；A、B 兩組輪流跨步，走起來才穩。"
+
+[sub_resource type="Resource" id="Step_6"]
+script = ExtResource("2_step")
+title = "6. 存檔"
+description = "上面的「資料夾」填英文名字（例如 my_dragon），按「存檔」。"
+hint = "會存到 my_creature/資料夾/design.tres。存完又改了東西，要再存一次。"
+done_text = "存好了！到標題畫面把 design.tres 拖進「玩家生物」，就能帶進生態缸玩。"
+
+[sub_resource type="Resource" id="Step_7"]
+script = ExtResource("2_step")
+title = "7. 額外：看它長大"
+description = "下面的「預覽等級」拉到 5 以上，看生物怎麼長大；再到「長大」分頁換一種跟一開始不一樣的長大方式。"
+hint = "三種長大方式：等比放大、變長＋長出腳、只變長。比比看能力和樣子差在哪。"
+done_text = "吃東西升級時照長大方式變形狀，能力也跟著形狀重算。"
+
+[sub_resource type="Resource" id="Step_8"]
+script = ExtResource("2_step")
+title = "8. 額外：會動的掛件"
+description = "「掛件」分頁加一個掛件，「動法」改成「拍動」或「彈簧」。"
+hint = "翅膀、魚鰭配拍動；天線、呆毛配彈簧。掛件只是裝飾，不會影響能力。"
+done_text = "掛件不算能力，想怎麼裝飾都可以。"
+
+[sub_resource type="Resource" id="Step_9"]
+script = ExtResource("2_step")
+title = "9. 額外：自己畫的圖"
+description = "選一個掛件按「匯入圖片」，放一張自己畫的 PNG。"
+hint = "要先填「資料夾」。圖會複製到你的生物的資料夾裡，記得再存一次檔。"
+done_text = "你的生物有自己畫的樣子了。"
+
+[resource]
+script = ExtResource("1_steps")
+steps = Array[ExtResource("2_step")]([SubResource("Step_1"), SubResource("Step_2"), SubResource("Step_3"), SubResource("Step_4"), SubResource("Step_5"), SubResource("Step_6"), SubResource("Step_7"), SubResource("Step_8"), SubResource("Step_9")])

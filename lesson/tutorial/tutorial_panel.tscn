@@ -1,0 +1,62 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://lesson/tutorial/scripts/tutorial_panel.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://lesson/tutorial/step_row.tscn" id="2_row"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_Panel"]
+content_margin_left = 6.0
+content_margin_top = 4.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
+bg_color = Color(0.05, 0.1, 0.12, 0.85)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="TutorialPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(260, 0)
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 268.0
+offset_bottom = 28.0
+theme_override_styles/panel = SubResource("StyleBox_Panel")
+script = ExtResource("1_script")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="Header" type="HBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+tooltip_text = "按住這一行可以拖動步驟卡"
+mouse_default_cursor_shape = 13
+layout_mode = 2
+
+[node name="ProgressLabel" type="Label" parent="VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "已完成 0／6 步　額外：0／3"
+
+[node name="PrevButton" type="Button" parent="VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "上一步"
+text = "<"
+
+[node name="NextButton" type="Button" parent="VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "下一步"
+text = ">"
+
+[node name="FoldButton" type="Button" parent="VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "把步驟卡收起來，水族箱看得比較清楚"
+text = "收起"
+
+[node name="StepRow" parent="VBox" instance=ExtResource("2_row")]
+unique_name_in_owner = true
+layout_mode = 2

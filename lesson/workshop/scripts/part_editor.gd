@@ -12,8 +12,10 @@ signal import_image_requested(part: OrnamentDesign)
 
 ## 位置偏移（Vector2）的滑桿範圍（像素）
 const OFFSET_RANGE: float = 100.0
-## 名稱欄的寬度
-const NAME_WIDTH: float = 154.0
+## 名稱欄的寬度（小字時；大字時用 WorkshopSettings.ui() 放大）
+const NAME_WIDTH: float = 88.0
+## 滑桿旁邊數字的寬度
+const NUMBER_WIDTH: float = 36.0
 
 ## 改之前先問「可以這樣改嗎」：回傳 false 就退回原本的值（工坊用來擋「超過複雜度上限」）。空的就都可以改
 var can_change: Callable
@@ -60,7 +62,7 @@ func _add_field(prop: Dictionary) -> void:
 	var row := HBoxContainer.new()
 	var name_label := Label.new()
 	name_label.text = _labels.name_of(field)
-	name_label.custom_minimum_size.x = NAME_WIDTH
+	name_label.custom_minimum_size.x = WorkshopSettings.ui(NAME_WIDTH)
 	name_label.tooltip_text = _labels.hint_of(field)
 	name_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_child(name_label)
@@ -86,7 +88,7 @@ func _slider(field: String, prop: Dictionary) -> Control:
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var number := Label.new()
-	number.custom_minimum_size.x = 66
+	number.custom_minimum_size.x = WorkshopSettings.ui(NUMBER_WIDTH)
 	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var show_value: Callable = func(value: float) -> void:
 		number.text = ("%d°" % roundi(value)) if degrees else (str(int(value)) if is_equal_approx(value, roundf(value)) else "%.2f" % value)
@@ -121,7 +123,7 @@ func _check(field: String) -> Control:
 func _color(field: String) -> Control:
 	var button := ColorPickerButton.new()
 	button.color = _part.get(field)
-	button.custom_minimum_size = Vector2(44, 33)
+	button.custom_minimum_size = Vector2(WorkshopSettings.ui(30), WorkshopSettings.ui(20))
 	button.color_changed.connect(func(color: Color) -> void: _set_field(field, color))
 	return button
 

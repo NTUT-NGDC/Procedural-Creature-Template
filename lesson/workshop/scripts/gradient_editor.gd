@@ -63,7 +63,7 @@ func _build_advanced() -> void:
 	for child: Node in _advanced.get_children():
 		child.queue_free()
 	_preview = Control.new()
-	_preview.custom_minimum_size = Vector2(0, 22)
+	_preview.custom_minimum_size = Vector2(0, WorkshopSettings.ui(12))
 	_preview.draw.connect(_draw_preview)
 	_advanced.add_child(_preview)
 	for i: int in _offsets.size():
@@ -127,7 +127,7 @@ func _draw_preview() -> void:
 func _color_button(color: Color, on_change: Callable) -> ColorPickerButton:
 	var button := ColorPickerButton.new()
 	button.color = color
-	button.custom_minimum_size = Vector2(44, 33)
+	button.custom_minimum_size = Vector2(WorkshopSettings.ui(30), WorkshopSettings.ui(20))
 	button.color_changed.connect(on_change)
 	return button
 

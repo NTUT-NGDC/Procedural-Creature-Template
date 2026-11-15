@@ -15,9 +15,9 @@ const PRESETS: Dictionary = {
 	"頭小尾大": [Vector2(0, 0.6), Vector2(0.7, 1), Vector2(1, 0.8)],
 	"葫蘆": [Vector2(0, 0.8), Vector2(0.25, 1), Vector2(0.45, 0.55), Vector2(0.7, 1), Vector2(1, 0.4)],
 }
-## 點的半徑（像素）、曲線區的高度
+## 點的半徑（像素）、曲線區的高度（再加上跟著字變的一段）
 const POINT_RADIUS: float = 7.0
-const CANVAS_HEIGHT: float = 110.0
+const CANVAS_HEIGHT: float = 50.0
 
 var _curve: Curve
 var _preset: OptionButton
@@ -45,7 +45,7 @@ func edit(curve: Curve) -> void:
 	row.add_child(advanced)
 
 	_canvas = Control.new()
-	_canvas.custom_minimum_size = Vector2(0, CANVAS_HEIGHT)
+	_canvas.custom_minimum_size = Vector2(0, CANVAS_HEIGHT + WorkshopSettings.ui(30))
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
 	_canvas.draw.connect(_draw_canvas)
 	_canvas.gui_input.connect(_on_canvas_input)
@@ -130,8 +130,9 @@ func _draw_canvas() -> void:
 	_canvas.draw_polyline(line, Color.WHITE, 2.0, true)
 	for i: int in _curve.point_count:
 		_canvas.draw_circle(_to_canvas(_curve.get_point_position(i)), POINT_RADIUS, Color("#f2b766"))
-	_canvas.draw_string(get_theme_default_font(), Vector2(4, _canvas.size.y - 6), "頭", HORIZONTAL_ALIGNMENT_LEFT, -1, 22)
-	_canvas.draw_string(get_theme_default_font(), Vector2(_canvas.size.x - 48, _canvas.size.y - 6), "尾巴", HORIZONTAL_ALIGNMENT_LEFT, -1, 22)
+	var font_size: int = WorkshopSettings.font_size
+	_canvas.draw_string(get_theme_default_font(), Vector2(4, _canvas.size.y - 4), "頭", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	_canvas.draw_string(get_theme_default_font(), Vector2(_canvas.size.x - font_size * 2 - 4, _canvas.size.y - 4), "尾巴", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 
 
 func _changed() -> void:

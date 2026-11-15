@@ -6,8 +6,20 @@ extends Control
 ## 複雜度（零件越多越高）有上限（平衡資料的 max_complexity）：超過上限的改動會被擋下來。
 ## 右邊的控制項是照設計檔的欄位自動長出來的（part_editor.gd），中文名稱在 data/workshop_labels.tres。
 ## 這是社課工具，用 F6 執行，不會匯出。
+##
+## 水族箱左上角是教學步驟卡（lesson/tutorial/tutorial_panel.tscn），用下面的 signal 告訴它發生了什麼。
+
+## 讀了一隻生物、或按了「新的」
+signal design_opened(design: CreatureDesign)
+## 設計檔改了（控制項、復原重做、改名字）
+signal design_edited(design: CreatureDesign)
+## 拉了「預覽等級」
+signal preview_level_changed(level: int)
+## 存好檔了
+signal design_saved(design: CreatureDesign)
 
 const LABELS: WorkshopLabels = preload("res://lesson/workshop/data/workshop_labels.tres")
+const TUTORIAL_PANEL: PackedScene = preload("res://lesson/tutorial/tutorial_panel.tscn")
 ## 讀取選單列出這些資料夾裡的設計檔（<資料夾>/design.tres）→ 選單上的前綴
 const DESIGN_FOLDERS: Dictionary = {"res://example/creatures/": "範例", "res://my_creature/": "我的"}
 const MY_FOLDER: String = "res://my_creature/"
@@ -17,7 +29,9 @@ const MAX_HISTORY: int = 100
 ## 匯入的圖最大幾像素（太大會縮小）
 const MAX_IMAGE_SIZE: int = 512
 const MAX_PREVIEW_LEVEL: int = 10
-const PANEL_WIDTH: float = 500.0
+## 右邊分頁的寬度：固定的一段＋跟著字變的一段（小字 320、中字約 400、大字 500）
+const PANEL_WIDTH_FIXED: float = 140.0
+const PANEL_WIDTH: float = 180.0
 const MOVE_MODES: PackedStringArray = ["跟著滑鼠", "自己游", "停住"]
 ## 工坊裡的水流強度（像素／秒）
 const WORKSHOP_FLOW: float = 12.0
@@ -51,6 +65,7 @@ var _stats_label: Label
 var _level_slider: HSlider
 var _level_label: Label
 var _tabs: TabContainer
+var _side_panel: PanelContainer
 var _body_editor: PartEditor
 var _growth_editor: PartEditor
 var _growth_help: Label
@@ -64,8 +79,8 @@ var _complexity: int = 0
 
 
 func _ready() -> void:
-	theme = Theme.new()
-	theme.default_font_size = 22
+	WorkshopSettings.load_settings()
+	_apply_font_size()
 	var debug: Node = get_node_or_null("/root/Debug")
 	if debug != null:
 		_old_show_bones = debug.get("show_bones")
@@ -116,6 +131,7 @@ func use_design(new_design: CreatureDesign, image_folder: String, loaded_folder:
 	_rebuild_editors()
 	_reset_history()
 	_update_stats()
+	design_opened.emit(design)
 	if _complexity > max_complexity():
 		_show_message("這隻生物的複雜度 %d 超過上限 %d，放不進生態缸：請減少腳、觸手、節數或掛件" % [_complexity, max_complexity()])
 
@@ -180,6 +196,7 @@ func save_to(folder: String) -> Error:
 	_loaded_folder = folder
 	_refresh_load_list()
 	_show_message("存好了：my_creature/%s/design.tres" % folder)
+	design_saved.emit(design)
 	return OK
 
 
@@ -252,6 +269,7 @@ func _on_design_changed() -> void:
 	_creature.apply_design()
 	_update_stats()
 	_history_timer.start()
+	design_edited.emit(design)
 
 
 ## 能力和代價（生物的速度、轉向本來就用算出來的能力，邊調邊感受得到）
@@ -311,6 +329,7 @@ func _on_level_changed(value: float) -> void:
 	_creature.level = int(value)
 	_creature.apply_design()
 	_update_stats()
+	preview_level_changed.emit(int(value))
 
 
 func _on_move_mode_selected(index: int) -> void:
@@ -365,6 +384,7 @@ func _restore(snapshot: Dictionary) -> void:
 	_rebuild_editors()
 	_update_stats()
 	_update_history_buttons()
+	design_edited.emit(design)
 
 
 func _update_history_buttons() -> void:
@@ -486,6 +506,29 @@ func _change_list(field: String, action: String) -> void:
 # ---------------------------------------------------------------- 版面
 
 
+## 換字的大小（WorkshopSettings.FONT_SIZES 其中一個）：記下來，整個工坊跟著變
+func set_font_size(size: int) -> void:
+	if not size in WorkshopSettings.FONT_SIZES:
+		return
+	WorkshopSettings.font_size = size
+	WorkshopSettings.save_settings()
+	_apply_font_size()
+	_side_panel.custom_minimum_size.x = _panel_width()
+	_level_label.custom_minimum_size.x = WorkshopSettings.ui(80)
+	_rebuild_editors()  # 名稱欄、數字欄這些寬度是做控制項時決定的，重做一次
+
+
+## 字的大小放在工坊的 Theme：底下的控制項、教學步驟卡都跟著變
+func _apply_font_size() -> void:
+	var new_theme := Theme.new()
+	new_theme.default_font_size = WorkshopSettings.font_size
+	theme = new_theme
+
+
+func _panel_width() -> float:
+	return PANEL_WIDTH_FIXED + WorkshopSettings.ui(PANEL_WIDTH)
+
+
 func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -500,14 +543,15 @@ func _build_ui() -> void:
 	root.add_child(left)
 	left.add_child(_build_top_bar())
 	left.add_child(_build_file_bar())
+	left.add_child(_build_message())
 	left.add_child(_build_stage())
 	left.add_child(_build_bottom_bar())
 
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size.x = PANEL_WIDTH
-	root.add_child(panel)
+	_side_panel = PanelContainer.new()
+	_side_panel.custom_minimum_size.x = _panel_width()
+	root.add_child(_side_panel)
 	_tabs = TabContainer.new()
-	panel.add_child(_tabs)
+	_side_panel.add_child(_tabs)
 	_body_editor = PartEditor.new()
 	_body_editor.can_change = _can_change
 	_body_editor.changed.connect(_on_design_changed)
@@ -548,7 +592,8 @@ func _build_top_bar() -> Control:
 	_name_edit.max_length = PartDesign.MAX_TEXT
 	_name_edit.text_changed.connect(func(text: String) -> void:
 		design.creature_name = text
-		_history_timer.start())
+		_history_timer.start()
+		design_edited.emit(design))
 	bar.add_child(_name_edit)
 	bar.add_child(_text("資料夾"))
 	_folder_edit = LineEdit.new()
@@ -574,19 +619,39 @@ func _build_file_bar() -> Control:
 	bar.add_child(_undo_button)
 	_redo_button = _button("重做", redo, "取消復原（Ctrl+Y）")
 	bar.add_child(_redo_button)
-	_message = Label.new()
-	_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_message.clip_text = true
-	_message.add_theme_color_override("font_color", Color("#f2b766"))
-	bar.add_child(_message)
+	var font_option := OptionButton.new()
+	for font_name: String in WorkshopSettings.FONT_NAMES:
+		font_option.add_item(font_name)
+	font_option.select(maxi(WorkshopSettings.FONT_SIZES.find(WorkshopSettings.font_size), 0))
+	font_option.tooltip_text = "工坊的字要大一點還是小一點（這台電腦會記住）"
+	font_option.item_selected.connect(func(index: int) -> void: set_font_size(WorkshopSettings.FONT_SIZES[index]))
+	bar.add_child(font_option)
 	return bar
 
 
-## 水族箱：獨立的子畫面，生物只會在這裡面游
+## 提示文字：按鈕列下面獨立一行，太長就換行（大字時才看得完）
+func _build_message() -> Control:
+	_message = Label.new()
+	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_message.add_theme_color_override("font_color", Color("#f2b766"))
+	return _message
+
+
+## 水族箱：獨立的子畫面，生物只會在這裡面游。左上角疊著教學步驟卡
 func _build_stage() -> Control:
+	var area := Control.new()
+	area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	area.clip_contents = true
 	var container := SubViewportContainer.new()
 	container.stretch = true
-	container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	area.add_child(container)
+	var tutorial: TutorialPanel = TUTORIAL_PANEL.instantiate()
+	area.add_child(tutorial)
+	design_opened.connect(tutorial.on_design_opened)
+	design_edited.connect(tutorial.on_design_edited)
+	preview_level_changed.connect(tutorial.on_preview_level_changed)
+	design_saved.connect(tutorial.on_design_saved)
 	_stage = SubViewport.new()
 	container.add_child(_stage)
 	var water := ColorRect.new()
@@ -597,7 +662,7 @@ func _build_stage() -> Control:
 	_creature = Creature.new()
 	_creature.position = Vector2(380, 280)
 	_stage.add_child(_creature)
-	return container
+	return area
 
 
 func _build_bottom_bar() -> Control:
@@ -607,7 +672,7 @@ func _build_bottom_bar() -> Control:
 	box.add_child(_stats_label)
 	var row := HBoxContainer.new()
 	_level_label = _text("預覽等級 0")
-	_level_label.custom_minimum_size.x = 160
+	_level_label.custom_minimum_size.x = WorkshopSettings.ui(80)
 	_level_label.tooltip_text = "拉拉看：升級之後會長成什麼樣子、能力怎麼變"
 	row.add_child(_level_label)
 	_level_slider = HSlider.new()

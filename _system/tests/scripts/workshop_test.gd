@@ -10,9 +10,11 @@ extends Node
 ## 8. 匯入圖片：太大的縮到 512，放進生物的資料夾，掛件顯示這張圖
 ## 9. 顏色、粗細形狀的編輯器：簡單模式、加顏色、選內建形狀
 ## 10. 複雜度上限：顯示「複雜度 x / 上限」；超過上限的滑桿、新增被擋下來，按鈕變灰；本來就超過的只能往下減
-## 11. 離開工坊：骨架開關回到原本的樣子
+## 11. 字的大小：換成中字、大字，字、右邊分頁、名稱欄跟著變；存進設定檔，重開工坊還記得；設定檔亂掉用小字；大字時很長的提示會換行
+## 12. 離開工坊：骨架開關回到原本的樣子
 ##
 ## 測試會在 my_creature/ 建立 zz_workshop_test 開頭的資料夾，結束時刪掉。
+## 工坊的設定檔（user://workshop_settings.cfg）測試前先備份、結束時放回去。
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/workshop_test.tscn
@@ -22,10 +24,13 @@ const TEST_FOLDERS: PackedStringArray = ["zz_workshop_test", "zz_workshop_test2"
 
 var _failures: int = 0
 var _workshop: Control
+## 測試前的工坊設定檔內容（沒有是空的）
+var _old_settings: String = ""
 
 
 func _ready() -> void:
 	_cleanup()
+	_backup_settings()
 	var debug: Node = get_node("/root/Debug")
 	debug.set("show_bones", false)
 	_workshop = WORKSHOP_SCENE.instantiate()
@@ -42,11 +47,13 @@ func _ready() -> void:
 	await _test_import_image()
 	_test_color_and_curve()
 	await _test_complexity()
+	await _test_font_size()
 
 	_workshop.queue_free()
 	await _frames(2)
 	_expect(debug.get("show_bones") == false, "離開工坊：骨架開關回到原本的樣子（關）")
 	_cleanup()
+	_restore_settings()
 	if _failures == 0:
 		print("[工坊測試] 全部 PASS")
 		get_tree().quit(0)
@@ -241,6 +248,68 @@ func _test_complexity() -> void:
 
 
 # ---------------------------------------------------------------- 工具
+
+
+func _test_font_size() -> void:
+	print("--- 字的大小 ---")
+	var panel: PanelContainer = _workshop.get("_side_panel")
+	var body_editor: PartEditor = _workshop.get("_body_editor")
+	_expect(_workshop.theme.default_font_size == 11 and is_equal_approx(panel.custom_minimum_size.x, 320.0), "一開始是小字，右邊分頁 320（%d）" % panel.custom_minimum_size.x)
+	var small_name: float = _name_width(body_editor)
+	_workshop.call("set_font_size", 16)
+	await _frames(2)
+	_expect(_workshop.theme.default_font_size == 16 and panel.custom_minimum_size.x > 320.0 and panel.custom_minimum_size.x < 500.0, "換成中字：字是 16，右邊分頁在中間（%d）" % panel.custom_minimum_size.x)
+	_workshop.call("set_font_size", 22)
+	await _frames(2)
+	body_editor = _workshop.get("_body_editor")
+	_expect(_workshop.theme.default_font_size == 22, "換成大字：字是 22")
+	_expect(is_equal_approx(panel.custom_minimum_size.x, 500.0), "右邊分頁變成 500（%d）" % panel.custom_minimum_size.x)
+	_expect(_name_width(body_editor) > small_name, "名稱欄變寬（%d → %d）" % [small_name, _name_width(body_editor)])
+	_workshop.call("set_font_size", 15)
+	_expect(_workshop.theme.default_font_size == 22, "不在選項裡（15）：不理它")
+	var message: Label = _workshop.get("_message")
+	message.text = "這是一段很長很長的提示文字，大字的時候一行放不下，要換到下一行才看得完，不能被截掉"
+	await _frames(2)
+	_expect(message.get_line_count() >= 2 and message.size.x <= (_workshop.get_parent_area_size().x as float), "大字時很長的提示會換行（%d 行）" % message.get_line_count())
+	var config := ConfigFile.new()
+	_expect(config.load(WorkshopSettings.SAVE_PATH) == OK and config.get_value("workshop", "font_size") == 22, "存進設定檔")
+
+	# 重開工坊：還是大字
+	_workshop.queue_free()
+	await _frames(2)
+	WorkshopSettings.font_size = 11
+	_workshop = WORKSHOP_SCENE.instantiate()
+	add_child(_workshop)
+	await _frames(3)
+	_expect(_workshop.theme.default_font_size == 22, "重開工坊還記得大字")
+
+	# 設定檔被亂改：用小字
+	config.set_value("workshop", "font_size", "很大")
+	config.save(WorkshopSettings.SAVE_PATH)
+	WorkshopSettings.load_settings()
+	_expect(WorkshopSettings.font_size == 11, "設定檔亂掉：用小字")
+	_workshop.call("set_font_size", 11)
+
+
+func _name_width(editor: PartEditor) -> float:
+	for row: Node in editor.get_children():
+		if row is HBoxContainer and row.get_child(0) is Label:
+			return (row.get_child(0) as Label).custom_minimum_size.x
+	return 0.0
+
+
+func _backup_settings() -> void:
+	if FileAccess.file_exists(WorkshopSettings.SAVE_PATH):
+		_old_settings = FileAccess.get_file_as_string(WorkshopSettings.SAVE_PATH)
+	DirAccess.remove_absolute(WorkshopSettings.SAVE_PATH)
+	WorkshopSettings.font_size = WorkshopSettings.BASE_FONT_SIZE
+
+
+func _restore_settings() -> void:
+	DirAccess.remove_absolute(WorkshopSettings.SAVE_PATH)
+	if _old_settings != "":
+		var file := FileAccess.open(WorkshopSettings.SAVE_PATH, FileAccess.WRITE)
+		file.store_string(_old_settings)
 
 
 func _design() -> CreatureDesign:
