@@ -31,6 +31,12 @@ static func head_on_rammers(a: Creature, b: Creature, balance: CreatureBalance) 
 	return [a] if a_in >= b_in else [b]
 
 
+## 鏡頭要拉到幾倍：視野是基本視野時 1（不拉遠），到上限時 max_zoom_out，中間照比例。眼睛越多看到的地圖越多
+static func camera_zoom(sight: float, balance: CreatureBalance) -> float:
+	var t: float = clampf(inverse_lerp(balance.base_sight, balance.max_sight, sight), 0.0, 1.0) if balance.max_sight > balance.base_sight else 0.0
+	return lerpf(1.0, balance.max_zoom_out, t)
+
+
 ## 整隻生物（頭＋身體）佔的範圍：先用這個快速排除「離很遠、不可能碰到」的組合，再一節一節檢查
 static func body_rect(creature: Creature) -> Rect2:
 	var body: ChainBody = creature.get_body()

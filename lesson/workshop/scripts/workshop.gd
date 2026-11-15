@@ -298,7 +298,7 @@ func _update_stats() -> void:
 		_stars(stats, "speed", balance), _stars(stats, "turn", balance), _stars(stats, "grab", balance), _stars(stats, "sight", balance),
 		roundi(stats.size), mode_name, stats.level_cost, stats.complexity, balance.max_complexity]
 	_stats_label.add_theme_color_override("font_color", COMPLEXITY_OVER_COLOR if _complexity > balance.max_complexity else Color.WHITE)
-	_stats_label.tooltip_text = "速度 %d 像素／秒　轉向 %d 度／秒　抓取 %d 像素　視野 %d 像素" % [roundi(stats.speed), roundi(rad_to_deg(stats.turn)), roundi(stats.grab), roundi(stats.sight)]
+	_stats_label.tooltip_text = "速度 %d 像素／秒　轉向 %d 度／秒　抓取 %d 像素　視野 %d 像素（眼睛越多越大，生態缸的鏡頭拉得越遠）" % [roundi(stats.speed), roundi(rad_to_deg(stats.turn)), roundi(stats.grab), roundi(stats.sight)]
 	for list_field: String in _lists:
 		_refresh_list_names(list_field)
 		_refresh_list_buttons(list_field)

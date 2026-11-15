@@ -16,6 +16,8 @@ extends Node2D
 
 ## 畫面外多遠以內還是照常畫、照常動（像素），太近的話游進畫面時會看到東西突然出現
 const OFFSCREEN_MARGIN: float = 100.0
+## 鏡頭拉遠拉近的速度（越大越快跟上）
+const ZOOM_SMOOTH: float = 3.0
 ## 生物的腳、觸手會伸出身體外面多遠（像素），判斷生物在不在畫面裡時加上去
 const PART_REACH: float = 150.0
 ## 生物掉出來的飼料，幾秒之後才能吃
@@ -141,7 +143,7 @@ func _process(delta: float) -> void:
 	_keep_population(delta)
 	_eat_food()
 	_judge_creatures()
-	_follow_player()
+	_follow_player(delta)
 	_skip_offscreen()
 	_update_hud()
 
@@ -328,7 +330,7 @@ func world_rect() -> Rect2:
 	return Rect2(Vector2.ZERO, world_size)
 
 
-## 鏡頭：跟著玩家，到地圖邊緣就停住（看不到地圖外面）
+## 鏡頭：跟著玩家，到地圖邊緣就停住（看不到地圖外面）；玩家的視野越大拉得越遠（TankRules.camera_zoom）
 func _create_camera() -> void:
 	camera = Camera2D.new()
 	camera.name = "Camera"
@@ -343,9 +345,19 @@ func _create_camera() -> void:
 	camera.make_current()
 
 
-func _follow_player() -> void:
-	if player != null:
-		camera.global_position = player.global_position
+## 鏡頭跟著玩家；拉遠拉近慢慢變（升級、重生時視野會變）
+func _follow_player(delta: float) -> void:
+	if player == null or player.get_stats() == null:
+		return
+	camera.global_position = player.global_position
+	var zoom: float = TankRules.camera_zoom(player.get_stats().sight, get_balance())
+	camera.zoom = camera.zoom.lerp(Vector2(zoom, zoom), 1.0 - exp(-ZOOM_SMOOTH * delta))
+
+
+## 畫面現在看得到的地圖範圍（鏡頭拉遠時比一個畫面大）
+func view_rect() -> Rect2:
+	var size: Vector2 = TankWater.SCREEN / camera.zoom
+	return Rect2(camera.get_screen_center_position() - size / 2.0, size)
 
 
 # ---------------------------------------------------------------- 食物
@@ -414,7 +426,7 @@ func floor_y() -> float:
 ## 水草、海葵連動都先停
 ## （地圖是畫面的好幾倍大，全部都畫、都動，網頁版會跑不動）
 func _skip_offscreen() -> void:
-	var view := Rect2(camera.get_screen_center_position() - TankWater.SCREEN / 2.0, TankWater.SCREEN).grow(OFFSCREEN_MARGIN)
+	var view: Rect2 = view_rect().grow(OFFSCREEN_MARGIN)
 	for plant: Node2D in _active_plants:
 		var on_screen: bool = view.has_point(plant.global_position)
 		plant.visible = on_screen

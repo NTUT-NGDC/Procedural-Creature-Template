@@ -1,8 +1,8 @@
 extends Node
 ## 生態缸的自動測試：
 ## 1. 開始：玩家生物照設計檔長出來、滑鼠控制，速度和頭的大小來自能力；水流照設定
-##    大地圖：玩家在地圖中央、鏡頭跟著玩家，到邊緣鏡頭停住、生物游不出地圖
-## 2. 飼料：點一下放一個；最多 max_food 個（平衡資料）；會往下沉、沉到底停住；缸裡會自己長（間隔 0 就不長）
+##    大地圖：玩家在地圖中央、鏡頭跟著玩家，到邊緣鏡頭停住、眼睛越多鏡頭拉得越遠、生物游不出地圖
+## 2. 飼料：點一下放一個；最多 max_food 個（平衡資料）；被水流帶著飄、不會跑出地圖或進沙地；缸裡會自己長（間隔 0 就不長）
 ## 3. 吃東西：頭碰到就吃掉；吃滿「升一級要吃幾個」才升級，升級後照長大方式變大
 ## 4. 水草：有水流時會歪；生物經過被撥開（點在身體外面），生物走了會站回來
 ## 5. 海葵：觸手被生物推開，再彈回來
@@ -63,7 +63,20 @@ func _test_world() -> void:
 	_expect(tank.camera.get_screen_center_position().distance_to(player.global_position) < 20.0, "鏡頭跟著玩家走（差 %.0f 像素）" % tank.camera.get_screen_center_position().distance_to(player.global_position))
 	player.global_position = Vector2(2550, 1430)
 	await _seconds(1.0)
-	_expect(tank.camera.get_screen_center_position().is_equal_approx(Vector2(2560 - 640, 1440 - 360)), "玩家在角落：鏡頭停在地圖邊緣，看不到外面")
+	var view: Rect2 = tank.view_rect()
+	_expect(absf(view.end.x - 2560.0) < 1.0 and absf(view.end.y - 1440.0) < 1.0, "玩家在角落：鏡頭停在地圖邊緣，看不到外面（畫面右下角 %v）" % view.end)
+
+	# 視野越大，鏡頭拉得越遠
+	var balance: CreatureBalance = tank.get_balance()
+	_expect(is_equal_approx(TankRules.camera_zoom(balance.base_sight, balance), 1.0) and is_equal_approx(TankRules.camera_zoom(balance.max_sight * 2.0, balance), balance.max_zoom_out), "鏡頭：沒有眼睛不拉遠，視野到上限拉到 %.2f 倍" % balance.max_zoom_out)
+	var sight_now: float = player.get_stats().sight
+	var size_before: Vector2 = tank.view_rect().size
+	player.design = CreatureDesign.from_data(player.design.to_dict())  # 複製一份來改，不動到範例
+	player.design.eyes[0].count = 6
+	player.design.eyes[0].size = 1.0
+	player.apply_design()
+	await _seconds(2.0)
+	_expect(player.get_stats().sight > sight_now and tank.view_rect().size.x > size_before.x + 100.0, "眼睛變多（視野 %.0f → %.0f）：看到的地圖變大（寬 %.0f → %.0f）" % [sight_now, player.get_stats().sight, size_before.x, tank.view_rect().size.x])
 	player.global_position = Vector2(3000, -100)
 	player.set_process(true)
 	await _frames(2)
@@ -91,12 +104,15 @@ func _test_food() -> void:
 		tank.drop_food(Vector2(100 + i * 40, 200))
 	_expect(foods.get_child_count() == 5, "最多 5 個（max_food）")
 	var food: Food = foods.get_child(0)
-	var start_y: float = food.global_position.y
+	var start: Vector2 = food.global_position
 	await _seconds(0.5)
-	_expect(food.global_position.y > start_y, "飼料會往下沉")
-	food.global_position.y = tank.floor_y() - 1.0
-	await _seconds(0.3)
-	_expect(is_equal_approx(food.global_position.y, tank.floor_y()), "沉到底就停住")
+	_expect(food.global_position != start, "飼料被水流帶著飄（沒有水流時停在原地、不往下沉，在 eat_test 測）")
+	food.global_position.y = tank.floor_y() + 50.0
+	await _frames(2)
+	_expect(food.global_position.y <= tank.floor_y(), "飄到底就擋住，不會跑進沙地")
+	food.global_position.y = -50.0
+	await _frames(2)
+	_expect(food.global_position.y >= 0.0, "飄到最上面也擋住，不會跑出地圖")
 	await _free(tank)
 
 	tank = await _spawn({"food_interval": 0.1, "max_food": 50})
