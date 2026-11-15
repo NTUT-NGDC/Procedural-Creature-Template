@@ -151,6 +151,7 @@ func _draw() -> void:
 	var white_radius: float = _segment_width() * size
 	var style: Dictionary = outline_style()
 	var look: Vector2 = Vector2.from_angle(anchor_angle(attach_segment)) if Engine.is_editor_hint() else _look
+	FastDraw.begin(self)  # 這排眼睛一次畫完
 	for eye_position: Vector2 in get_eye_positions():
 		var center: Vector2 = to_local(eye_position)
 		if _blinking:
@@ -161,3 +162,4 @@ func _draw() -> void:
 		FastDraw.circle(self, center, white_radius, _white())
 		var local_look: Vector2 = look.rotated(-global_rotation)
 		FastDraw.circle(self, center + local_look * white_radius * 0.35, white_radius * 0.5, pupil_color)
+	FastDraw.end()

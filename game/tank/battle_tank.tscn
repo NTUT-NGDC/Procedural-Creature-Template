@@ -1,0 +1,157 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/tank/tank.tscn" id="1_tank"]
+[ext_resource type="Script" path="res://game/tank/scripts/weed.gd" id="2_weed"]
+
+[node name="BattleTank" instance=ExtResource("1_tank")]
+world_size = Vector2(3840, 2160)
+population = 0
+max_plants = 60
+quality = 1
+
+[node name="Weed1" parent="Plants"]
+position = Vector2(120, 2132)
+
+[node name="Weed2" parent="Plants"]
+position = Vector2(285, 2132)
+
+[node name="Weed3" parent="Plants"]
+position = Vector2(390, 2132)
+
+[node name="Weed4" parent="Plants"]
+position = Vector2(900, 2132)
+
+[node name="Weed5" parent="Plants"]
+position = Vector2(1005, 2132)
+
+[node name="Weed6" parent="Plants"]
+position = Vector2(1410, 2132)
+
+[node name="Weed7" parent="Plants"]
+position = Vector2(1920, 2132)
+
+[node name="Weed8" parent="Plants"]
+position = Vector2(2070, 2132)
+
+[node name="Weed9" parent="Plants"]
+position = Vector2(2460, 2132)
+
+[node name="Weed10" parent="Plants"]
+position = Vector2(2970, 2132)
+
+[node name="Weed11" parent="Plants"]
+position = Vector2(3090, 2132)
+
+[node name="Weed12" parent="Plants"]
+position = Vector2(3450, 2132)
+
+[node name="Weed13" parent="Plants"]
+position = Vector2(3570, 2132)
+
+[node name="Weed14" parent="Plants"]
+position = Vector2(3720, 2132)
+
+[node name="Anemone1" parent="Plants"]
+position = Vector2(660, 2132)
+
+[node name="Anemone2" parent="Plants"]
+position = Vector2(2700, 2132)
+
+[node name="Anemone3" parent="Plants"]
+position = Vector2(1680, 2108)
+
+[node name="Weed15" parent="Plants"]
+position = Vector2(192, 2132)
+
+[node name="Weed16" parent="Plants"]
+position = Vector2(357, 2132)
+
+[node name="Weed17" parent="Plants"]
+position = Vector2(462, 2132)
+
+[node name="Weed18" parent="Plants"]
+position = Vector2(972, 2132)
+
+[node name="Weed19" parent="Plants"]
+position = Vector2(1077, 2132)
+
+[node name="Weed20" parent="Plants"]
+position = Vector2(1482, 2132)
+
+[node name="Weed21" parent="Plants"]
+position = Vector2(1992, 2132)
+
+[node name="Weed22" parent="Plants"]
+position = Vector2(2142, 2132)
+
+[node name="Weed23" parent="Plants"]
+position = Vector2(2532, 2132)
+
+[node name="Weed24" parent="Plants"]
+position = Vector2(3042, 2132)
+
+[node name="Weed25" parent="Plants"]
+position = Vector2(3162, 2132)
+
+[node name="Weed26" parent="Plants"]
+position = Vector2(3522, 2132)
+
+[node name="Weed27" parent="Plants"]
+position = Vector2(3642, 2132)
+
+[node name="Weed28" parent="Plants"]
+position = Vector2(3792, 2132)
+
+[node name="Anemone4" parent="Plants"]
+position = Vector2(2580, 2132)
+
+[node name="Anemone5" parent="Plants"]
+position = Vector2(780, 2132)
+
+[node name="Anemone6" parent="Plants"]
+position = Vector2(3600, 2108)
+
+[node name="Weed29" type="Node2D" parent="Plants"]
+position = Vector2(1233, 2132)
+script = ExtResource("2_weed")
+height = 90.0
+segment_count = 4
+lean = 0.215
+base_color = Color(0.13, 0.35, 0.3, 1)
+tip_color = Color(0.4, 0.7, 0.55, 1)
+
+[node name="Weed30" type="Node2D" parent="Plants"]
+position = Vector2(1795, 2132)
+script = ExtResource("2_weed")
+height = 220.0
+segment_count = 11
+lean = 0.072
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed31" type="Node2D" parent="Plants"]
+position = Vector2(2275, 2132)
+script = ExtResource("2_weed")
+height = 120.0
+segment_count = 6
+lean = 0.154
+base_color = Color(0.18, 0.43, 0.27, 1)
+tip_color = Color(0.5, 0.78, 0.48, 1)
+
+[node name="Weed32" type="Node2D" parent="Plants"]
+position = Vector2(2811, 2132)
+script = ExtResource("2_weed")
+height = 90.0
+segment_count = 4
+lean = -0.064
+base_color = Color(0.3, 0.42, 0.18, 1)
+tip_color = Color(0.72, 0.8, 0.4, 1)
+
+[node name="Weed33" type="Node2D" parent="Plants"]
+position = Vector2(3279, 2132)
+script = ExtResource("2_weed")
+height = 90.0
+segment_count = 4
+lean = 0.197
+base_color = Color(0.13, 0.35, 0.3, 1)
+tip_color = Color(0.4, 0.7, 0.55, 1)

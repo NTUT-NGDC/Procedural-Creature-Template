@@ -43,6 +43,30 @@ static func body_rect(creature: Creature) -> Rect2:
 	return rect.grow(body.thickness + creature.head_radius)
 
 
+## 復活、生出新生物時，spot 這個位置「還有多少空間」（像素）：離每隻生物的身體多遠，取最近的。
+## 吃得掉我（體型 size）的生物，還要扣掉牠的視野：正的＝不在任何吃得掉我的生物的視野裡。
+## 生態缸（之後連線的主機）拿幾個隨機位置來比，挑空間最大的
+static func spawn_room(spot: Vector2, size: float, creatures: Array[Creature], balance: CreatureBalance) -> float:
+	var room: float = INF
+	for other: Creature in creatures:
+		var distance: float = _distance_to_body(spot, other)
+		var stats: CreatureStats = other.get_stats()
+		if stats != null and stats.size >= size * balance.eat_ratio:
+			distance -= stats.sight  # 吃得掉我的：要離開牠的視野才算安全
+		room = minf(room, distance)
+	return room
+
+
+## spot 離這隻生物（頭＋身體）最近的地方多遠
+static func _distance_to_body(spot: Vector2, creature: Creature) -> float:
+	var nearest: float = spot.distance_to(creature.global_position)
+	var body: ChainBody = creature.get_body()
+	if body != null:
+		for point: Vector2 in body.get_points():
+			nearest = minf(nearest, spot.distance_to(point))
+	return nearest
+
+
 ## 撞到別人身體要扣幾級：對方的等級，對方 0 級也扣 1 級
 static func hit_damage(victim_level: int) -> int:
 	return maxi(victim_level, 1)

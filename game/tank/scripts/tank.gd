@@ -19,6 +19,8 @@ const OFFSCREEN_MARGIN: float = 100.0
 const PART_REACH: float = 150.0
 ## 生物掉出來的飼料，幾秒之後才能吃
 const DROPPED_FOOD_WAIT: float = 0.6
+## 找復活位置時試幾個地方
+const SPAWN_TRIES: int = 30
 const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %d），多的先藏起來，網頁版才跑得動"
 
 @export_group("遊戲")
@@ -47,8 +49,8 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 	preload("res://example/creatures/snake/design.tres"),
 	preload("res://example/creatures/spider/design.tres"),
 ]
-## 缸裡總共幾隻生物（玩家＋NPC）：NPC 的數量＝這個數字－玩家人數
-@export_range(1, 40, 1) var population: int = 10
+## 缸裡總共幾隻生物（玩家＋NPC）：NPC 的數量＝這個數字－玩家人數。0 是沒有 NPC（對戰）
+@export_range(0, 40, 1) var population: int = 10
 ## 網頁版缸裡最多幾隻（網頁版比較慢，會自動減少到這個數字）
 @export_range(1, 40, 1) var web_population: int = 6
 ## NPC 最高幾級（吃再多也不會再長大），避免整缸越長越大
@@ -81,6 +83,8 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 @export var background: Texture2D
 ## 背景音樂（.mp3、.ogg、.wav），空著就沒有。音量跟著設定裡的「音樂」滑桿
 @export var music: AudioStream
+## 畫質：「低」不畫外框、腳的影子、吸盤、身體花紋，生物很多時比較順（對戰地圖預設「低」）
+@export_enum("高", "低") var quality: int = 0
 
 @onready var _water: Node2D = %Water
 @onready var _plants: Node2D = %Plants
@@ -107,6 +111,7 @@ func _ready() -> void:
 		return  # 編輯器裡只畫水和水草，不開始遊戲
 	if OS.has_feature("web"):
 		population = mini(population, web_population)
+	FastDraw.low_quality = quality == 1
 	WaterFlow.strength = flow_strength
 	WaterFlow.wave_size = flow_wave_size
 	WaterFlow.speed = flow_speed
@@ -123,6 +128,7 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if not Engine.is_editor_hint():
 		WaterFlow.reset()  # 回到標題、工坊時是靜水
+		FastDraw.low_quality = false  # 工坊用原本的畫質
 
 
 func _process(delta: float) -> void:
@@ -202,7 +208,8 @@ func spawn_npc() -> Creature:
 	npc.max_level = npc_max_level
 	var base: int = player.level if player != null else 0
 	npc.level = clampi(base + randi_range(-npc_level_spread, npc_level_spread), 0, npc_max_level)
-	npc.position = _safe_spot()
+	var size: float = CreatureStats.compute(CreatureGrowth.shape_at(npc.design, npc.level, get_balance()), get_balance()).size
+	npc.position = _safe_spot(size)
 	npc.heading = randf() * TAU
 	npc.brain = func() -> Dictionary: return NpcBrain.choose_target(npc, get_creatures(), _foods.get_children())
 	npc.add_to_group("npc")
@@ -310,7 +317,7 @@ func _nearest_joint(creature: Creature, to: Vector2) -> Vector2:
 ## 玩家被吃掉：回到 0 級，在附近沒有大生物的地方重生，無敵一下
 func _respawn_player() -> void:
 	player.set_level(0)
-	player.global_position = _safe_spot(player)
+	player.global_position = _safe_spot(player.get_stats().size, player)
 	player.knockback = Vector2.ZERO
 	player.reset_pose()
 	player.invincible_time = player.get_balance().respawn_invincible
@@ -319,19 +326,19 @@ func _respawn_player() -> void:
 	_hud.call("show_message", "被吃掉了！從 0 級重新開始", 2.5)
 
 
-## 找一個離其他生物（ignore 以外）遠一點的地方（試幾次，找最遠的）
-func _safe_spot(ignore: Creature = null) -> Vector2:
+## 復活、生出新生物的位置：隨便挑 SPAWN_TRIES 個地方，選「空間」最大的（見 TankRules.spawn_room）。
+## size 是要放進來的生物的體型，ignore 是不用避開的（例如復活的玩家自己）
+func _safe_spot(size: float, ignore: Creature = null) -> Vector2:
+	var others: Array[Creature] = get_creatures()
+	others.erase(ignore)
 	var best: Vector2 = world_size / 2.0
-	var best_distance: float = -1.0
-	for i: int in 20:
+	var best_room: float = -INF
+	for i: int in SPAWN_TRIES:
 		var spot := Vector2(randf_range(100.0, world_size.x - 100.0), randf_range(100.0, floor_y() - 100.0))
-		var nearest: float = INF
-		for creature: Creature in get_creatures():
-			if creature != ignore:
-				nearest = minf(nearest, creature.global_position.distance_to(spot))
-		if nearest > best_distance:
+		var room: float = TankRules.spawn_room(spot, size, others, get_balance())
+		if room > best_room:
 			best = spot
-			best_distance = nearest
+			best_room = room
 	return best
 
 

@@ -250,6 +250,7 @@ static func _make_default_gradient() -> Gradient:
 func _draw() -> void:
 	var style: Dictionary = outline_style()
 	var signs: PackedFloat32Array = side_signs(side)
+	FastDraw.begin(self)  # 這組觸手的外框、觸手、吸盤一次畫完
 	for k: int in _chains.size():
 		var points: PackedVector2Array = []
 		for joint: Vector2 in _chains[k]:
@@ -257,8 +258,9 @@ func _draw() -> void:
 		if style.width > 0.0:
 			_draw_strand(points, style.width, style.color)
 		_draw_strand(points, 0.0, null)
-		if suckers:
+		if suckers and not FastDraw.low_quality:
 			_draw_suckers(points, signs[k] if k < signs.size() else 1.0)
+	FastDraw.end()
 	if CreatureDebug.bones_visible(self):
 		_draw_bones()
 

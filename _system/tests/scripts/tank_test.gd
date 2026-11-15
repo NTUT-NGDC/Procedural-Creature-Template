@@ -9,6 +9,8 @@ extends Node
 ## 6. 水草、海葵超過上限：多的藏起來、顯示提示
 ## 7. 沒有玩家生物：顯示提示、不會當掉；玩家生物超過複雜度上限：不放進來、顯示提示
 ## 8. 離開生態缸：水流歸零
+## 9. 對戰地圖（battle_tank.tscn）：3 × 3、沒有 NPC、水草海葵都在沙地上；
+##    復活位置：避開吃得掉自己的生物的視野，小的只避開身體
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/tank_test.tscn
@@ -28,6 +30,7 @@ func _ready() -> void:
 	await _test_anemone()
 	await _test_plant_limit()
 	await _test_no_player()
+	await _test_battle_tank()
 
 	if _failures == 0:
 		print("[生態缸測試] 全部 PASS")
@@ -200,6 +203,51 @@ func _test_no_player() -> void:
 	tank = await _spawn({"player_design": load(SNAKE), "max_complexity": 20})
 	await _frames(2)
 	_expect(tank.player == null and "太複雜" in tank.get_node("%HUD").call("get_message"), "蛇（26 點）超過上限 20：不放進來、顯示提示")
+	await _free(tank)
+
+
+func _test_battle_tank() -> void:
+	print("--- 對戰地圖、復活位置 ---")
+	var tank: Tank = (load("res://game/tank/battle_tank.tscn") as PackedScene).instantiate()
+	add_child(tank)
+	await _seconds(0.5)
+	_expect(tank.world_size == Vector2(3840, 2160) and tank.npc_count() == 0, "3 × 3 地圖（%v），沒有 NPC（%d 隻）" % [tank.world_size, tank.npc_count()])
+	var plants: Array[Node] = tank.get_node("Plants").get_children()
+	var on_floor: bool = true
+	for plant: Node in plants:
+		var position: Vector2 = (plant as Node2D).position
+		on_floor = on_floor and position.x >= 0.0 and position.x <= tank.world_size.x and position.y > tank.world_size.y - 100.0
+	_expect(plants.size() > 34 and on_floor, "水草、海葵 %d 個，都在地圖裡的沙地上" % plants.size())
+	_expect(plants.size() <= tank.max_plants, "沒有超過水草上限（%d）" % tank.max_plants)
+
+	var big := Creature.new()
+	big.design = load("res://example/creatures/octopus/design.tres")
+	big.control_mode = Creature.Mode.WANDER
+	big.level = 10
+	big.position = Vector2(1000, 1000)
+	tank.add_creature(big)
+	var small := Creature.new()
+	small.design = load("res://example/creatures/doodle/design.tres")
+	small.control_mode = Creature.Mode.WANDER
+	small.position = Vector2(3000, 1000)
+	tank.add_creature(small)
+	await _frames(2)
+	big.set_process(false)
+	small.set_process(false)
+	var player: Creature = tank.player
+	player.set_level(0)
+	var others: Array[Creature] = [big, small]
+	var balance: CreatureBalance = tank.get_balance()
+	var size: float = player.get_stats().size
+	_expect(TankRules.can_eat(big, player, balance) and not TankRules.can_eat(small, player, balance), "（前提）大章魚吃得掉 0 級的玩家，小塗鴉吃不掉")
+	_expect(TankRules.spawn_room(big.global_position + Vector2(100, 0), size, others, balance) < 0.0, "大章魚的視野裡（離牠 100）：空間是負的")
+	var near_small: float = TankRules.spawn_room(small.global_position + Vector2(0, 300), size, others, balance)
+	_expect(near_small > 0.0 and near_small < 400.0, "小塗鴉旁邊：只算離身體多遠（%.0f），不扣視野" % near_small)
+	var safe: bool = true
+	for i: int in 10:
+		tank.call("_respawn_player")
+		safe = safe and player.global_position.distance_to(big.global_position) > big.get_stats().sight
+	_expect(safe, "復活 10 次：都在大章魚的視野（%.0f）外面" % big.get_stats().sight)
 	await _free(tank)
 
 

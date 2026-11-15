@@ -190,6 +190,7 @@ func _bend(side_sign: float) -> float:
 func _draw() -> void:
 	var signs: PackedFloat32Array = side_signs(side)
 	var style: Dictionary = outline_style()
+	FastDraw.begin(self)  # 這組腳的影子、外框、腳、腳掌一次畫完
 	for k: int in mini(_feet.size(), signs.size()):
 		var hip: Vector2 = _hip(signs[k])
 		# 腳掌太遠時，畫的時候先拉回伸得到的地方，小腿才不會被拉長
@@ -197,6 +198,7 @@ func _draw() -> void:
 		var knee: Vector2 = solve_knee(hip, foot, thigh_length, shin_length, _bend(signs[k]))
 		var lift: float = sin(_step_t[k] * PI) if _stepping[k] else 0.0
 		_draw_leg(to_local(hip), to_local(knee), to_local(foot), lift, style)
+	FastDraw.end()
 	if CreatureDebug.bones_visible(self):
 		_draw_bones(signs)
 
@@ -204,7 +206,7 @@ func _draw() -> void:
 ## 畫一隻腳：影子（抬起時）→ 外框 → 大腿＋小腿（一條帶子，膝蓋自然是圓的）→ 腳掌
 func _draw_leg(hip: Vector2, knee: Vector2, foot: Vector2, lift: float, style: Dictionary) -> void:
 	var foot_radius: float = leg_width * 0.8 + lift * lift_height
-	if lift > 0.0:
+	if lift > 0.0 and not FastDraw.low_quality:
 		FastDraw.circle(self, foot + Vector2(2.0, 3.0) * lift_height * lift, foot_radius, Color(0, 0, 0, 0.25))
 	var bones := PackedVector2Array([hip, knee, foot])
 	if style.width > 0.0:

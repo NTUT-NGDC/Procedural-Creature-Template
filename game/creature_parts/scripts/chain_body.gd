@@ -394,7 +394,11 @@ func _draw_section(sides: Array, from: int, to: int, pattern_end: int) -> bool:
 	for t: float in right_ts + tail_cap[1] + left_ts + head_cap[1]:
 		colors.append(_body_color(t))
 	draw_polygon(points, colors)
+	if FastDraw.low_quality:
+		return true  # 畫質「低」：不畫花紋、外框
+	FastDraw.begin(self)  # 花紋的圓點一次畫完
 	_draw_pattern(from, pattern_end)
+	FastDraw.end()
 	if outline_width > 0.0:
 		# 外框只畫在身體的邊上，切開的地方不畫，兩段才接得起來
 		if from == 0 and to == last:
@@ -489,12 +493,17 @@ func _draw_fallback(from: int, to: int) -> void:
 	var tail: Vector2 = to_local(_display[to])
 	circles.append(Vector3(tail.x, tail.y, get_width(to)))
 	colors.append(_body_color(float(to) / last))
-	if outline_width > 0.0:
+	FastDraw.begin(self)  # 這段的圓一次畫完
+	if outline_width > 0.0 and not FastDraw.low_quality:
 		for circle: Vector3 in circles:
 			FastDraw.circle(self, Vector2(circle.x, circle.y), circle.z + outline_width, outline_color)
 	for k: int in range(circles.size() - 1, -1, -1):
 		FastDraw.circle(self, Vector2(circles[k].x, circles[k].y), circles[k].z, colors[k])
-	_draw_pattern(from, to)
+	FastDraw.end()
+	if not FastDraw.low_quality:
+		FastDraw.begin(self)
+		_draw_pattern(from, to)
+		FastDraw.end()
 
 
 ## 畫第 from 節到 to 節（不含 to）的花紋

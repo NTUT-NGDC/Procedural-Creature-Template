@@ -75,9 +75,10 @@ func anchor_position(segment: int, side_sign: float, outward: float = 1.0) -> Ve
 ## 外框的顏色和粗細跟身體一樣，畫風才統一。沒有身體就用預設值
 func outline_style() -> Dictionary:
 	var body: ChainBody = get_body()
-	if body != null:
-		return {"color": body.outline_color, "width": body.outline_width}
-	return {"color": Color("#cdeccf"), "width": 2.5}
+	var color: Color = body.outline_color if body != null else Color("#cdeccf")
+	if FastDraw.low_quality:
+		return {"color": color, "width": 0.0}  # 畫質「低」：不畫外框
+	return {"color": color, "width": body.outline_width if body != null else 2.5}
 
 
 ## 編輯器裡：生物被拖動、身體形狀改了，就重擺預覽姿勢。子類別在 _process() 開頭呼叫

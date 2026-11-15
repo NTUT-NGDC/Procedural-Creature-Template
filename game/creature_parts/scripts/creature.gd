@@ -24,6 +24,8 @@ const MIN_LENGTH: int = 2
 const START_LENGTH: int = 10
 ## 水流推生物的比例（生物自己會游，只被推一點點）
 const FLOW_DRIFT: float = 0.3
+## 電腦控制的大腦多久想一次（秒）
+const BRAIN_INTERVAL: float = 0.1
 
 ## 控制方式的編號，跟下面「控制方式」選單的順序一樣
 enum Mode { MOUSE, WASD, WANDER }
@@ -76,7 +78,12 @@ var _wander_timer: float = 0.0
 var _wander_angle: float = 0.0
 ## 電腦控制的「大腦」：有設定的話，每一幀問它要往哪走（回傳跟 _get_move_target() 一樣的字典，
 ## 回傳空的字典就照控制方式走）。生態缸的 NPC 用 game/tank/scripts/npc_brain.gd
+## 大腦每 BRAIN_INTERVAL 秒想一次（一秒 10 次就夠了），中間照上一次的決定走
 var brain: Callable
+## 還要等多久才再想一次（每隻一開始隨機，才不會全部擠在同一幀想）
+var _brain_wait: float = randf() * BRAIN_INTERVAL
+## 大腦上一次的決定
+var _brain_decision: Dictionary = {}
 ## 最高幾級（-1 是沒有上限）：到了就不會再長大。生態缸的 NPC 用
 var max_level: int = -1
 ## 生態缸裡給玩家看的標記（Mark）：眼睛、身體會照這個換顏色
@@ -121,6 +128,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
+	_brain_wait -= delta
 	var target: Dictionary = _get_move_target()
 	_update_boost(target.get("boost", false), delta)
 	_steer(target.angle, target.speed * (get_balance().boost_speed if boosting else 1.0), delta)
@@ -130,9 +138,11 @@ func _process(delta: float) -> void:
 ## 回傳這一幀想往哪個角度走、想走多快、要不要加速：{"angle": 弧度, "speed": 像素／秒, "boost": 要不要加速}
 func _get_move_target() -> Dictionary:
 	if brain.is_valid():
-		var decision: Dictionary = brain.call()
-		if not decision.is_empty():
-			return decision
+		if _brain_wait <= 0.0:
+			_brain_wait = BRAIN_INTERVAL
+			_brain_decision = brain.call()
+		if not _brain_decision.is_empty():
+			return _brain_decision
 	match control_mode:
 		Mode.MOUSE:
 			var to_mouse: Vector2 = get_global_mouse_position() - global_position

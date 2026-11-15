@@ -112,6 +112,7 @@ func get_arm_tip(k: int) -> Vector2:
 
 
 func _draw() -> void:
+	FastDraw.begin(self)  # 觸手、身體一次畫完
 	for arm: PackedVector2Array in _arms:
 		var local := PackedVector2Array()
 		var widths := PackedFloat32Array()
@@ -124,3 +125,4 @@ func _draw() -> void:
 		FastDraw.strip(self, local, widths, colors)  # 一條觸手一次畫完，尖端是圓的
 	FastDraw.circle(self, Vector2.ZERO, body_radius, body_color)
 	FastDraw.circle(self, Vector2(-body_radius * 0.3, -body_radius * 0.3), body_radius * 0.35, body_color.lightened(0.25))
+	FastDraw.end()
