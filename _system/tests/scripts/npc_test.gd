@@ -1,10 +1,10 @@
 extends Node
 ## NPC 的自動測試：
 ## 1. 開始：NPC 的數量＝缸裡總數－玩家人數；不同設計檔、等級在範圍內、不會生在玩家旁邊
-## 2. 再生：NPC 被吃掉，過一下再生一隻（不是馬上）
-## 3. 大腦：有吃得掉我的就逃、看得到小的就追、看得到飼料就吃、都沒有就漫遊；視野外的不理；會避開別人的身體
+## 2. 再生：NPC 死掉，過一下再生一隻（不是馬上）
+## 3. 大腦：附近有別的生物就衝到牠的頭前面擋路（快到了就加速）、看得到飼料就吃、都沒有就漫遊；太遠、無敵的不理；會避開別人的頭和身體
 ## 4. 等級上限：到了最高級，吃再多也不會長大
-## 5. 在生態缸裡：大的 NPC 真的會追過來、小的 NPC 真的會逃走
+## 5. 在生態缸裡：NPC 真的會衝到玩家的頭前面
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/npc_test.tscn
@@ -60,7 +60,7 @@ func _test_respawn() -> void:
 	var tank: Tank = await _spawn({"population": 4, "npc_respawn_time": 0.4})
 	_npcs(tank)[0].queue_free()
 	await _frames(2)
-	_expect(tank.npc_count() == 2, "被吃掉一隻：剩 2 隻（不是馬上再生）")
+	_expect(tank.npc_count() == 2, "死掉一隻：剩 2 隻（不是馬上再生）")
 	await _seconds(0.6)
 	_expect(tank.npc_count() == 3, "過一下再生一隻：回到 3 隻")
 	await _free(tank)
@@ -70,19 +70,21 @@ func _test_brain() -> void:
 	print("--- 大腦 ---")
 	var me: Creature = _creature(5, Vector2(1000, 1000), 0.0)
 	var sight: float = me.get_stats().sight
-	var prey: Creature = _creature(0, Vector2(1000 + sight * 0.5, 1000), PI)  # 頭朝左，身體在右邊（不擋路）
 	var no_food: Array[Node] = []
-	var decision: Dictionary = NpcBrain.choose_target(me, [me, prey], no_food)
-	_expect(not decision.is_empty() and absf(angle_difference(decision.angle, 0.0)) < 0.3, "看得到比自己小的：往牠游（%.0f 度）" % rad_to_deg(decision.get("angle", 0.0)))
-	prey.global_position.x = 1000 + sight * 1.5
-	prey.reset_pose()
-	_expect(NpcBrain.choose_target(me, [me, prey], no_food).is_empty(), "在視野外：不理（漫遊）")
-
-	var threat: Creature = _creature(12, Vector2(1000 + sight * 0.3, 1000), PI)
-	decision = NpcBrain.choose_target(me, [me, prey, threat], no_food)
-	_expect(not decision.is_empty() and absf(angle_difference(decision.angle, PI)) < 0.3, "附近有吃得掉自己的：往反方向逃（%.0f 度）" % rad_to_deg(decision.get("angle", 0.0)))
-	_expect(decision.get("boost", false), "敵人很近：加速逃")
-	threat.queue_free()
+	var other: Creature = _creature(0, Vector2(1000 + sight * 0.3, 1000), -PI / 2.0)  # 頭朝上，身體往下
+	var ahead: Vector2 = other.global_position + Vector2(0, -other.head_radius * NpcBrain.BLOCK_AHEAD)
+	var decision: Dictionary = NpcBrain.choose_target(me, [me, other], no_food)
+	var want: float = (ahead - me.global_position).angle()
+	_expect(not decision.is_empty() and absf(angle_difference(decision.angle, want)) < 0.3, "附近有別的生物：衝到牠的頭前面（%.0f 度，前面在 %.0f 度）" % [rad_to_deg(decision.get("angle", 0.0)), rad_to_deg(want)])
+	_expect(not decision.get("boost", true), "離擋路的位置還遠：不加速")
+	_place(other, me.global_position + Vector2(40, other.head_radius * NpcBrain.BLOCK_AHEAD), -PI / 2.0)  # 牠頭前面的位置就在 me 旁邊
+	decision = NpcBrain.choose_target(me, [me, other], no_food)
+	_expect(decision.get("boost", false), "快到擋路的位置：加速")
+	other.invincible_time = 5.0
+	_expect(NpcBrain.choose_target(me, [me, other], no_food).is_empty(), "無敵的（剛重生）：不理")
+	other.invincible_time = 0.0
+	_place(other, Vector2(1000 + sight * 0.6, 1000), -PI / 2.0)
+	_expect(NpcBrain.choose_target(me, [me, other], no_food).is_empty(), "太遠（視野的 6 成）：不理（漫遊）")
 
 	var food := Food.new()
 	food.position = Vector2(1000, 1000 + sight * 0.5)
@@ -95,7 +97,10 @@ func _test_brain() -> void:
 	var wall: Creature = _creature(0, Vector2(1040, 850), -PI / 2.0)  # 頭朝上，身體往下擋在 me 右邊
 	var push: Vector2 = NpcBrain.avoid_bodies(me, [me, wall])
 	_expect(push.x < 0.0, "旁邊有別人的身體：往外避開（%.2f, %.2f）" % [push.x, push.y])
-	for node: Creature in [me, prey, wall]:
+	_place(wall, Vector2(1030, 1000), -PI / 2.0)  # 別人的頭就在 me 右邊
+	push = NpcBrain.avoid_bodies(me, [me, wall])
+	_expect(push.x < 0.0, "旁邊有別人的頭：也要避開（撞到頭也會死）（%.2f, %.2f）" % [push.x, push.y])
+	for node: Creature in [me, other, wall]:
 		node.queue_free()
 	await _frames(2)
 
@@ -120,29 +125,20 @@ func _test_in_tank() -> void:
 	var player: Creature = tank.player
 	player.set_process(false)
 	player.global_position = Vector2(1000, 700)
+	player.heading = 0.0
 	player.reset_pose()
-	var hunter: Creature = tank.spawn_npc()
-	hunter.set_level(10)
-	var sight: float = hunter.get_stats().sight
-	_place(hunter, Vector2(1000 + sight * 0.6, 700), PI)  # 面向玩家，身體在右邊
-	var start: float = hunter.global_position.distance_to(player.global_position)
-	await _seconds(1.0)
-	var now: float = hunter.global_position.distance_to(player.global_position)
-	_expect(now < start - 50.0 or player.is_invincible(), "大的 NPC 追過來：距離 %.0f → %.0f" % [start, now])
-	hunter.queue_free()
-	await _frames(2)
-
-	player.set_level(10)
-	player.global_position = Vector2(1000, 700)
-	player.reset_pose()
-	var runner: Creature = tank.spawn_npc()
-	runner.set_level(0)
-	sight = runner.get_stats().sight
-	_place(runner, Vector2(1000 + sight * 0.3, 700), PI)  # 面向玩家
-	start = runner.global_position.distance_to(player.global_position)
-	await _seconds(1.0)
-	now = runner.global_position.distance_to(player.global_position)
-	_expect(now > start + 50.0, "小的 NPC 逃走：距離 %.0f → %.0f" % [start, now])
+	var ahead: Vector2 = player.global_position + Vector2(player.head_radius * NpcBrain.BLOCK_AHEAD, 0)
+	var blocker: Creature = tank.spawn_npc()
+	var sight: float = blocker.get_stats().sight
+	_place(blocker, Vector2(1000 + sight * 0.25, 700 + sight * 0.25), -PI / 2.0)  # 在玩家右下方（擋路範圍裡），頭朝上
+	var start: float = blocker.global_position.distance_to(ahead)
+	var closest: float = start  # 這 1 秒內最接近的距離（衝到之後會繞過頭再轉回來，只看最後一刻不準）
+	var end_time: int = Time.get_ticks_msec() + 1000
+	while Time.get_ticks_msec() < end_time and is_instance_valid(blocker) and not blocker.is_queued_for_deletion():
+		closest = minf(closest, blocker.global_position.distance_to(ahead))
+		await get_tree().process_frame
+	var dead: bool = not is_instance_valid(blocker) or blocker.is_queued_for_deletion()
+	_expect(not dead and closest < start - 50.0, "NPC 衝到玩家的頭前面：離擋路的位置 %.0f → 最近 %.0f" % [start, closest])
 	await _free(tank)
 
 

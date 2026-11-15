@@ -16,10 +16,10 @@ extends Resource
 ##     （零件越多，每台電腦畫起來越重。工坊超過上限就不能再加；長大到上限就改成整隻放大；
 ##       生態缸、對戰不收超過上限的生物。掛件算在上限裡，但不算進升級成本，因為掛件不會讓生物變強）
 ##
-## 生態缸的規則（寫在 game/tank/scripts/tank_rules.gd）：
-##   吃：頭咬到對方的「頭」（身體的前幾成），而且體型 ≥ 對方的「吃得掉的倍數」
-##   撞：頭撞到別人的「身體」（頭以外的部分），不管誰大，自己扣「對方的等級」級（最少 1 級）
-##   被吃掉、被撞掉的每一級，掉「每級掉幾個飼料」個飼料
+## 生態缸的規則（寫在 game/tank/scripts/tank_rules.gd，像 Slither）：
+##   撞：頭撞到別人（頭或身體，不管誰大），撞人的那隻死掉
+##   頭碰頭：衝向對方的那隻死；兩隻都朝對方衝超過「正面對撞速度」就兩隻都死
+##   死掉的生物散成（等級＋1）×「每級掉幾個飼料」個大顆飼料
 
 ## 預設的平衡資料
 const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
@@ -48,15 +48,19 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 ## 速度下限、上限（像素／秒）
 @export_range(10, 1000, 5) var min_speed: float = 60.0
 @export_range(10, 1000, 5) var max_speed: float = 360.0
+## 長大最多慢到 0 級速度的幾倍（1 是長大完全不會變慢）
+@export_range(0.1, 1.0, 0.05) var min_speed_ratio: float = 0.8
 
 @export_group("轉向")
 ## 基本轉向（度／秒）：身體長度是 0 時的轉向速度
 @export_range(30, 1080, 10, "radians_as_degrees") var base_turn: float = deg_to_rad(450.0)
-## 長度對轉向的影響：身體每長 1 像素，轉向變慢多少
+## 長度對轉向的影響：身體每長 1 像素，轉向變慢多少（長度＝身體＋最長的觸手 × 觸手算幾成）
 @export_range(0, 0.05, 0.0005) var turn_per_length: float = 0.004
 ## 轉向下限、上限（度／秒）
 @export_range(10, 1080, 10, "radians_as_degrees") var min_turn: float = deg_to_rad(90.0)
-@export_range(10, 1080, 10, "radians_as_degrees") var max_turn: float = deg_to_rad(450.0)
+@export_range(10, 1080, 10, "radians_as_degrees") var max_turn: float = deg_to_rad(280.0)
+## 觸手算幾成長度：最長那條觸手 × 這個比例，加進轉向用的長度（觸手越長越難轉）
+@export_range(0, 2, 0.05) var turn_tentacle_ratio: float = 0.5
 
 @export_group("抓取與視野")
 ## 抓取範圍上限（像素）：觸手再長也只算到這裡
@@ -94,30 +98,29 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 
 @export_group("飼料")
 ## 生態缸裡自己長出飼料的間隔（秒），0 是不會自己長。地圖越大、生物越多，要長得越快
-@export_range(0, 30, 0.05) var food_interval: float = 0.4
+@export_range(0, 30, 0.05) var food_interval: float = 0.2
 ## 場上最多幾個飼料（生物掉出來的不算在內）
-@export_range(0, 300, 1) var max_food: int = 80
+@export_range(0, 300, 1) var max_food: int = 150
+## 缸裡自己長的飼料，有多少機率是大顆（0～1）
+@export_range(0, 1, 0.01) var big_food_chance: float = 0.15
+## 大顆飼料算幾個（小顆算 1 個）。死掉的生物掉出來的都是大顆，加速噴出來的是小顆
+@export_range(1, 20, 1) var big_food_value: int = 3
 
-@export_group("大吃小")
-## 吃得掉的倍數：體型至少是對方的幾倍才吃得掉（差不多大的碰到會彈開）
-@export_range(1.0, 3.0, 0.05) var eat_ratio: float = 1.2
-## 「頭」佔身體的前幾成：咬到這裡算咬頭（吃得掉），後面算身體（撞到會扣級）
-@export_range(0.05, 1.0, 0.05) var head_zone: float = 0.25
-## 被吃掉、被撞掉的每一級，掉幾個飼料
+@export_group("碰撞")
+## 死掉的生物，每一級掉幾個大顆飼料（0 級也算 1 級）
 @export_range(0, 20, 1) var food_per_level: int = 2
 ## 一次最多掉幾個飼料（太多網頁版會卡）
 @export_range(1, 200, 1) var max_drop_food: int = 30
-## 撞到時彈開的速度（像素／秒）
-@export_range(0, 2000, 10) var bounce_speed: float = 350.0
-## 撞到別人身體之後，幾秒內不會再被撞、被吃
-@export_range(0, 10, 0.1) var hit_invincible: float = 1.0
-## 被吃掉重生之後，幾秒內不會被撞、被吃
+## 頭碰頭時：兩隻都朝對方衝超過這個速度（像素／秒）才算正面對撞、兩隻都死；不然只有衝過去的那隻死
+@export_range(0, 500, 5) var head_on_speed: float = 30.0
+## 死掉重生之後，幾秒內撞到別人、被別人撞都沒事
 @export_range(0, 10, 0.1) var respawn_invincible: float = 2.0
 
 @export_group("加速")
 ## 加速時速度變成幾倍
 @export_range(1.0, 4.0, 0.05) var boost_speed: float = 1.8
-## 加速時每秒消耗幾個「這一級吃到一半的飼料」（消耗的會掉在身後）
+## 加速時每秒消耗幾個飼料（消耗的變成小顆飼料掉在身後）。
+## 這一級吃到一半的用完了就掉一級、繼續消耗，一直噴到 0 級、一個都不剩才停
 @export_range(0.1, 20, 0.1) var boost_cost: float = 2.0
 
 @export_group("星星")

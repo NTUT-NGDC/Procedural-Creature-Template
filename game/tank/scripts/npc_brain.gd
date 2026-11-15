@@ -1,17 +1,18 @@
 class_name NpcBrain
 extends RefCounted
-## NPC 的大腦：每一幀決定要往哪裡游。照順序問三個問題，第一個成立的就照做：
-##   1. 附近有吃得掉我的？→ 逃（很近就加速）
-##   2. 看得到我吃得掉的？→ 追牠的頭（快追到就加速）
-##   3. 看得到飼料？→ 去吃
+## NPC 的大腦（規則像 Slither：頭撞到別人就死掉）：每一幀決定要往哪裡游。照順序問兩個問題，第一個成立的就照做：
+##   1. 附近有別的生物？→ 衝到牠的頭前面擋路（讓牠撞上來），快到了就加速
+##   2. 看得到飼料？→ 去吃
 ##   都沒有 → 回傳空的字典，生物自己漫遊
-## 不管往哪游，都會避開別人的身體（撞到會掉級）和地圖邊緣。
-## 「看得到」＝在視野（能力裡的 sight）裡面，所以眼睛多的 NPC 比較會逃、比較會追。
+## 不管往哪游，都會避開別人的頭和身體（撞到會死）和地圖邊緣。
+## 「看得到」＝在視野（能力裡的 sight）裡面，所以眼睛多的 NPC 比較會擋路、比較會找飼料。
 
-## 敵人在視野的幾成以內才逃（太遠的不理）
-const FLEE_RANGE: float = 0.6
-## 敵人、獵物在視野的幾成以內就加速
-const BOOST_RANGE: float = 0.35
+## 別的生物在視野的幾成以內，才去擋牠的路（太遠的不理）
+const BLOCK_RANGE: float = 0.4
+## 擋路時，衝到對方頭前面「頭的半徑幾倍」的地方
+const BLOCK_AHEAD: float = 8.0
+## 離擋路的位置剩視野的幾成，就加速
+const BOOST_RANGE: float = 0.2
 ## 別人的身體在「頭的半徑幾倍」以內就要避開
 const AVOID_RANGE: float = 3.0
 ## 離地圖邊緣幾像素以內就往裡面轉
@@ -21,16 +22,12 @@ const WALL_MARGIN: float = 120.0
 ## 決定這一幀要往哪走：{"angle": 弧度, "speed": 像素／秒, "boost": 要不要加速}，什麼都沒看到是空的
 static func choose_target(me: Creature, creatures: Array[Creature], foods: Array[Node]) -> Dictionary:
 	var sight: float = me.get_stats().sight
-	var balance: CreatureBalance = me.get_balance()
-	# 1. 逃：最近的、吃得掉我的
-	var threat: Creature = _nearest(me, creatures, sight * FLEE_RANGE, func(other: Creature) -> bool: return TankRules.can_eat(other, me, balance))
-	if threat != null:
-		return _go(me, me.global_position - threat.global_position, creatures, _close(me, threat, sight))
-	# 2. 追：最近的、我吃得掉的，對準牠的頭
-	var prey: Creature = _nearest(me, creatures, sight, func(other: Creature) -> bool: return TankRules.can_eat(me, other, balance))
-	if prey != null:
-		return _go(me, prey.global_position - me.global_position, creatures, _close(me, prey, sight))
-	# 3. 吃飼料：最近的
+	# 1. 擋路：最近的別的生物，衝到牠的頭前面
+	var other: Creature = _nearest(me, creatures, sight * BLOCK_RANGE)
+	if other != null:
+		var ahead: Vector2 = other.global_position + Vector2.from_angle(other.heading) * other.head_radius * BLOCK_AHEAD
+		return _go(me, ahead - me.global_position, creatures, me.global_position.distance_to(ahead) < sight * BOOST_RANGE)
+	# 2. 吃飼料：最近的
 	var food: Node2D = null
 	for item: Node in foods:
 		var node: Node2D = item as Node2D
@@ -48,7 +45,7 @@ static func _go(me: Creature, direction: Vector2, creatures: Array[Creature], bo
 	return {"angle": steer.angle() if steer != Vector2.ZERO else me.heading, "speed": me.speed, "boost": boost}
 
 
-## 避開別人的身體（頭不用避，咬頭是吃）：每一節把我往外推，離得越近推越大力
+## 避開別人的頭和身體（撞到會死）：每一節把我往外推，離得越近推越大力
 static func avoid_bodies(me: Creature, creatures: Array[Creature]) -> Vector2:
 	var push := Vector2.ZERO
 	for other: Creature in creatures:
@@ -58,9 +55,8 @@ static func avoid_bodies(me: Creature, creatures: Array[Creature]) -> Vector2:
 		if me.global_position.distance_to(other.global_position) > body.joint_count() * body.spacing + me.head_radius * AVOID_RANGE + body.thickness:
 			continue  # 整隻都離很遠：跳過，不用一節一節算
 		var points: PackedVector2Array = body.get_points()  # 每一節的位置
-		var head_joints: int = maxi(ceili(points.size() * me.get_balance().head_zone), 1)
 		var far: float = me.head_radius * AVOID_RANGE + body.thickness * 1.5  # 比最粗的地方還遠，就不用算這一節多粗
-		for i: int in range(head_joints, points.size()):
+		for i: int in points.size():
 			var offset: Vector2 = me.global_position - points[i]
 			if offset.length() > far:
 				continue
@@ -78,19 +74,12 @@ static func _avoid_walls(me: Creature) -> Vector2:
 	return (inside.get_center() - me.global_position).normalized()
 
 
-## 範圍 reach 以內、符合條件（wanted）的生物裡，最近的那隻
-static func _nearest(me: Creature, creatures: Array[Creature], reach: float, wanted: Callable) -> Creature:
+## 範圍 reach 以內，最近的別的生物（無敵的不理）
+static func _nearest(me: Creature, creatures: Array[Creature], reach: float) -> Creature:
 	var nearest: Creature = null
 	for other: Creature in creatures:
 		if other == me or other.is_invincible() or me.global_position.distance_to(other.global_position) > reach:
 			continue
-		if not wanted.call(other):
-			continue
 		if nearest == null or me.global_position.distance_to(other.global_position) < me.global_position.distance_to(nearest.global_position):
 			nearest = other
 	return nearest
-
-
-## 夠近了就加速
-static func _close(me: Creature, other: Creature, sight: float) -> bool:
-	return me.global_position.distance_to(other.global_position) < sight * BOOST_RANGE

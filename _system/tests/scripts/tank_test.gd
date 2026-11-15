@@ -10,7 +10,7 @@ extends Node
 ## 7. 沒有玩家生物：顯示提示、不會當掉；玩家生物超過複雜度上限：不放進來、顯示提示
 ## 8. 離開生態缸：水流歸零
 ## 9. 對戰地圖（battle_tank.tscn）：3 × 3、沒有 NPC、水草海葵都在沙地上；
-##    復活位置：避開吃得掉自己的生物的視野，小的只避開身體
+##    復活位置：離每隻生物的頭、身體越遠越好；點滑鼠不會放飼料
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/tank_test.tscn
@@ -219,6 +219,12 @@ func _test_battle_tank() -> void:
 		on_floor = on_floor and position.x >= 0.0 and position.x <= tank.world_size.x and position.y > tank.world_size.y - 100.0
 	_expect(plants.size() > 34 and on_floor, "水草、海葵 %d 個，都在地圖裡的沙地上" % plants.size())
 	_expect(plants.size() <= tank.max_plants, "沒有超過水草上限（%d）" % tank.max_plants)
+	var foods_before: int = tank.get_node("%Foods").get_child_count()
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	tank.call("_unhandled_input", click)
+	_expect(not tank.click_to_feed and tank.get_node("%Foods").get_child_count() == foods_before, "對戰地圖：點滑鼠不會放飼料")
 
 	var big := Creature.new()
 	big.design = load("res://example/creatures/octopus/design.tres")
@@ -237,21 +243,23 @@ func _test_battle_tank() -> void:
 	var player: Creature = tank.player
 	player.set_level(0)
 	var others: Array[Creature] = [big, small]
-	var balance: CreatureBalance = tank.get_balance()
-	var size: float = player.get_stats().size
-	_expect(TankRules.can_eat(big, player, balance) and not TankRules.can_eat(small, player, balance), "（前提）大章魚吃得掉 0 級的玩家，小塗鴉吃不掉")
-	_expect(TankRules.spawn_room(big.global_position + Vector2(100, 0), size, others, balance) < 0.0, "大章魚的視野裡（離牠 100）：空間是負的")
-	var near_small: float = TankRules.spawn_room(small.global_position + Vector2(0, 300), size, others, balance)
-	_expect(near_small > 0.0 and near_small < 400.0, "小塗鴉旁邊：只算離身體多遠（%.0f），不扣視野" % near_small)
+	var near_big: float = TankRules.spawn_room(_tail_of(big) + Vector2(0, 100), others)
+	_expect(near_big > 0.0 and near_big <= 100.0, "離大章魚的尾巴 100：空間是到身體的距離（%.0f），頭和身體都算" % near_big)
+	_expect(TankRules.spawn_room(Vector2(2000, 1800), others) > 500.0, "離大家都很遠：空間很大")
 	var safe: bool = true
 	for i: int in 10:
 		tank.call("_respawn_player")
-		safe = safe and player.global_position.distance_to(big.global_position) > big.get_stats().sight
-	_expect(safe, "復活 10 次：都在大章魚的視野（%.0f）外面" % big.get_stats().sight)
+		safe = safe and TankRules.spawn_room(player.global_position, others) > 300.0
+	_expect(safe, "復活 10 次：都離每隻生物的頭、身體 300 以上")
 	await _free(tank)
 
 
 # ---------------------------------------------------------------- 工具
+
+
+func _tail_of(creature: Creature) -> Vector2:
+	var body: ChainBody = creature.get_body()
+	return body.get_joint(body.joint_count() - 1)
 
 
 ## 離植物遠一點、但鏡頭還看得到它的地方（看不到的植物會暫停）

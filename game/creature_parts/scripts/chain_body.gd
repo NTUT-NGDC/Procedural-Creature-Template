@@ -12,10 +12,10 @@ extends Node2D
 const MAX_SEGMENTS: int = 200
 ## 備用畫法：每兩節之間排幾個圓
 const FALLBACK_STEPS: int = 3
-
-## 生態缸裡玩家吃得掉的生物，身體外面那圈綠色的顏色、寬度（像素）
-const PREY_COLOR: Color = Color("#5dff6a")
-const PREY_GLOW_WIDTH: float = 4.0
+## 加速時身體外面那圈光：比身體寬多少倍、一閃一閃的速度（每秒幾次）、光從頭跑到尾巴每節差多少
+const BOOST_GLOW_SCALE: float = 2.0
+const BOOST_GLOW_SPEED: float = 14.0
+const BOOST_GLOW_WAVE: float = 0.5
 
 ## 花紋的編號，跟「花紋」選單的順序一樣
 enum Pattern { NONE, SPOTS, STRIPES, FIN }
@@ -341,7 +341,7 @@ static func _make_default_gradient() -> Gradient:
 func _draw() -> void:
 	if _display.size() < 2:
 		return
-	_draw_prey_glow()
+	_draw_boost_glow()
 	var sides: Array = _build_sides()
 	var last: int = _display.size() - 1
 	# 平常整條身體一次畫完。身體捲起來、跟自己重疊時，輪廓會交叉、畫不出來，
@@ -358,18 +358,6 @@ func _draw() -> void:
 
 	if CreatureDebug.bones_visible(self):
 		_draw_bones()
-
-
-## 生態缸裡玩家吃得掉的生物：身體外面多一圈綠色（先畫，身體蓋在上面，只露出外圈）
-func _draw_prey_glow() -> void:
-	var creature: Creature = _get_creature()
-	if creature == null or creature.mark != Creature.Mark.PREY:
-		return
-	for i: int in _display.size():
-		var at: Vector2 = to_local(_display[i])
-		FastDraw.circle(self, at, get_width(i) + PREY_GLOW_WIDTH, PREY_COLOR)
-		if i > 0:
-			draw_line(to_local(_display[i - 1]), at, PREY_COLOR, (get_width(i) + PREY_GLOW_WIDTH) * 2.0, true)
 
 
 ## 畫第 from～to 節（含輪廓、花紋、外框）。花紋只畫到 pattern_end，多畫的那一節留給後面那段。
@@ -472,6 +460,22 @@ func _smooth_ts(ts: PackedFloat32Array) -> PackedFloat32Array:
 ## 第 i 節的角度（本地座標）
 func _local_angle(i: int) -> float:
 	return _angles[i] - global_rotation
+
+
+## 加速時（像 Slither）：身體外面一圈發光，一閃一閃、光從頭跑到尾巴。先畫，身體蓋在上面，只露出外圈
+func _draw_boost_glow() -> void:
+	var creature: Creature = _get_creature()
+	if creature == null or not creature.boosting:
+		return
+	var time: float = Time.get_ticks_msec() / 1000.0
+	var last: int = _display.size() - 1
+	FastDraw.begin(self)
+	for i: int in _display.size():
+		var pulse: float = 0.5 + 0.5 * sin(time * BOOST_GLOW_SPEED - i * BOOST_GLOW_WAVE)  # 0～1，往尾巴慢一點
+		var color: Color = _body_color(float(i) / last).lightened(0.6)
+		color.a = 0.35 + 0.45 * pulse
+		FastDraw.circle(self, to_local(_display[i]), get_width(i) * BOOST_GLOW_SCALE + 4.0 * pulse, color)
+	FastDraw.end()
 
 
 func _body_color(t: float) -> Color:

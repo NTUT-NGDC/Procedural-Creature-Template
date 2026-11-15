@@ -4,7 +4,7 @@ extends Node
 ##
 ## 用法：開這個場景按 F6，按下面的按鈕換情境。
 ## 對戰的情境都用對戰地圖（game/tank/battle_tank.tscn：3 × 3、沒有 NPC），20 隻玩家生物，鏡頭跟著其中一隻：
-##   ・「對戰：接近真實」：8 種範例生物混著用，等級 0～8 平均分布（一直有人被吃掉變回小隻，大隻的不多）（驗收看這個）
+##   ・「對戰：接近真實」：8 種範例生物混著用，等級 0～8 平均分布（一直有人撞死變回小隻，大隻的不多）（驗收看這個）
 ##   ・「對戰：全重」：全部是 8 級的章魚、蜈蚣（最壞的情況）
 ##   ・「對戰：混戰」：全重，而且其中 8 隻擠在同一個畫面大的範圍裡打
 ##   ・「10／24／32 隻」：生物在 2 × 2 的地圖上游，鏡頭只看得到一部分
@@ -79,7 +79,7 @@ func _process(delta: float) -> void:
 	if _crowd and _tank != null:
 		_keep_in_view()
 	if _battle != Battle.NONE and _tank != null and _tank.get_creatures().size() < _count:
-		_add_battle_creature()  # 被吃掉的補回來，數量才固定
+		_add_battle_creature()  # 撞死的補回來，數量才固定
 	var result: Vector3 = stats()
 	_label.text = "%d 隻（%s）　畫面裡 %d 隻\n平均 %.1f ms（%.0f fps）　最低 %.0f fps　最低 1%% %.0f fps" % [
 		_count, _mode_name(), _visible_count(), result.x * 1000.0, 1.0 / result.x, result.y, result.z]
@@ -107,7 +107,7 @@ func _mode_name() -> String:
 	return "全擠在畫面裡" if _crowd else "分散"
 
 
-## 重開一個生態缸，生出 count 隻（count＋玩家＝缸裡總數，被吃掉會自己補）
+## 重開一個生態缸，生出 count 隻（count＋玩家＝缸裡總數，撞死會自己補）
 func _spawn(count: int, crowd: bool) -> void:
 	await _clear()
 	_count = count

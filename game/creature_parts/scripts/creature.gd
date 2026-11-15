@@ -29,8 +29,6 @@ const BRAIN_INTERVAL: float = 0.1
 
 ## 控制方式的編號，跟下面「控制方式」選單的順序一樣
 enum Mode { MOUSE, WASD, WANDER }
-## 生態缸裡給玩家看的標記：DANGER 能吃你（眼睛變紅）、PREY 你能吃牠（外框變綠）
-enum Mark { NONE, DANGER, PREY }
 
 ## 設計檔：拖一份 design.tres 進來，身體和零件會自己長出來（不用自己加節點）。
 ## 自己長出來的節點不會存進場景檔，改了設計檔就會跟著變
@@ -86,14 +84,17 @@ var _brain_wait: float = randf() * BRAIN_INTERVAL
 var _brain_decision: Dictionary = {}
 ## 最高幾級（-1 是沒有上限）：到了就不會再長大。生態缸的 NPC 用
 var max_level: int = -1
-## 生態缸裡給玩家看的標記（Mark）：眼睛、身體會照這個換顏色
-var mark: int = Mark.NONE
-## 無敵還剩幾秒：不會被撞、被吃，身體一閃一閃
+## 無敵還剩幾秒：撞到別人、被別人撞都沒事，身體一閃一閃
 var invincible_time: float = 0.0
 ## 被彈開的速度（像素／秒），會慢慢變小
 var knockback: Vector2 = Vector2.ZERO
+## 生態缸的玩家操作（像 Slither）：一直全速往前衝、滑鼠或方向鍵只管方向；
+## 按住任何鍵、滑鼠左鍵或右鍵加速。生態缸會打開；工坊、沙盒維持「跟著滑鼠、會停」、不能加速
+var tank_controls: bool = false
 ## 這一幀有沒有在加速
 var boosting: bool = false
+## 現在按住的鍵（加速用：按住任何鍵都算）
+var _held_keys: Dictionary = {}
 ## 加速累積消耗了多少飼料（滿 1 個就真的扣掉一個）
 var _boost_spent: float = 0.0
 ## 可以游的範圍（全局座標）。空的就是畫面範圍；生態缸會設成整張地圖
@@ -146,6 +147,8 @@ func _get_move_target() -> Dictionary:
 	match control_mode:
 		Mode.MOUSE:
 			var to_mouse: Vector2 = get_global_mouse_position() - global_position
+			if tank_controls:  # 一直全速往前，滑鼠只管方向
+				return {"angle": to_mouse.angle() if to_mouse.length() > head_radius else heading, "speed": speed, "boost": _read_boost()}
 			# 滑鼠就在頭上：停下來、不轉頭，不然會原地打轉、身體捲成一團
 			if to_mouse.length() < head_radius:
 				return {"angle": heading, "speed": 0.0}
@@ -153,6 +156,8 @@ func _get_move_target() -> Dictionary:
 			return {"angle": to_mouse.angle(), "speed": speed * clampf((to_mouse.length() - head_radius) / 80.0, 0.0, 1.0), "boost": _read_boost()}
 		Mode.WASD:
 			var input: Vector2 = _read_wasd()
+			if tank_controls:  # 放開方向鍵也照樣往前衝
+				return {"angle": input.angle() if input != Vector2.ZERO else heading, "speed": speed, "boost": _read_boost()}
 			return {"angle": input.angle() if input != Vector2.ZERO else heading, "speed": speed if input != Vector2.ZERO else 0.0, "boost": _read_boost()}
 	return {"angle": _wander(), "speed": speed * 0.6}
 
@@ -182,22 +187,61 @@ func _wander() -> float:
 	return _wander_angle
 
 
-## 加速：要加速、而且這一級還有吃到一半的飼料才能加速。每秒消耗 boost_cost 個，消耗的從尾巴掉出去
+## 加速（像 Slither）：每秒消耗 boost_cost 個飼料，消耗的從尾巴掉出去。
+## 這一級吃到一半的用完了，就掉一級（身體變小）、從上一級的滿格繼續扣，一直噴到 0 級、一個都不剩才停
 func _update_boost(want: bool, delta: float) -> void:
-	boosting = want and food_progress > 0 and shape != null
+	boosting = want and can_boost()
 	if not boosting:
 		return
 	_boost_spent += get_balance().boost_cost * delta
-	while _boost_spent >= 1.0 and food_progress > 0:
+	while _boost_spent >= 1.0 and can_boost():
 		_boost_spent -= 1.0
+		if food_progress <= 0:
+			_shrink_one_level()
 		food_progress -= 1
 		var body: ChainBody = get_body()
 		boost_spent.emit(body.get_joint(body.joint_count() - 1) if body != null else global_position)
 
 
-## 玩家按住空白鍵或滑鼠右鍵就是要加速
+## 還能不能加速：還有吃到一半的飼料，或還沒到 0 級
+func can_boost() -> bool:
+	return shape != null and (food_progress > 0 or level > 0)
+
+
+## 加速把這一級用完了：掉一級，進度變成上一級的滿格
+func _shrink_one_level() -> void:
+	level -= 1
+	apply_design()
+	_notify_parts()
+	food_progress = get_stats().level_cost
+
+
+## 玩家按住任何鍵、滑鼠左鍵或右鍵就是要加速（只有生態缸的玩家可以加速）
 func _read_boost() -> bool:
-	return Input.is_physical_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	if not tank_controls:
+		return false
+	return not _held_keys.is_empty() or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+
+
+## 記下按住了哪些鍵。Esc（暫停）、F1～F12 不算；用方向鍵操作時，方向鍵、WASD 也不算
+func _input(event: InputEvent) -> void:
+	var key: InputEventKey = event as InputEventKey
+	if not tank_controls or key == null or key.echo:
+		return
+	var code: Key = key.physical_keycode
+	if code == KEY_ESCAPE or (code >= KEY_F1 and code <= KEY_F12):
+		return
+	if control_mode == Mode.WASD and code in [KEY_W, KEY_A, KEY_S, KEY_D, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]:
+		return
+	if key.pressed:
+		_held_keys[code] = true
+	else:
+		_held_keys.erase(code)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_held_keys.clear()  # 切到別的視窗時放開的鍵收不到，先全部當作放開
 
 
 ## 無敵時間倒數，無敵時一閃一閃
@@ -265,7 +309,8 @@ func grow(amount: int = 1) -> void:
 
 
 ## 吃掉一個食物：通知食物「被吃了」（食物有 on_eaten() 的話），發出 ate。
-## 有設計檔的生物：吃滿「升一級要吃幾個」才長大一級；沒有設計檔的：吃一個就長大 1
+## 有設計檔的生物：吃滿「升一級要吃幾個」才長大一級（大顆飼料算好幾個，多的留到下一級）；
+## 沒有設計檔的：吃一個就長大 1
 func eat(food: Node) -> void:
 	if food.has_method("on_eaten"):
 		food.call("on_eaten", self)
@@ -275,10 +320,13 @@ func eat(food: Node) -> void:
 		return
 	if max_level >= 0 and level >= max_level:
 		return  # 已經最高級了：吃了也不會再長大
-	food_progress += 1
-	if food_progress >= get_stats().level_cost:
-		food_progress = 0
+	food_progress += int(food.get("value")) if "value" in food else 1
+	while food_progress >= get_stats().level_cost:
+		food_progress -= get_stats().level_cost
 		grow(1)
+		if max_level >= 0 and level >= max_level:
+			food_progress = 0
+			return
 
 
 ## 掉級：最多掉到 0 級，回傳真的掉了幾級。這一級吃到一半的飼料也不見了
@@ -389,7 +437,7 @@ func apply_design() -> void:
 		return
 	_legs_dirty = true
 	shape = CreatureGrowth.shape_at(design, level, get_balance())
-	_stats = CreatureStats.compute(shape, get_balance())
+	_stats = CreatureStats.at_level(design, level, get_balance(), shape)
 	_apply_abilities()
 	var structure: String = _design_structure()
 	if structure != _built_structure or not is_instance_valid(_built_body):

@@ -25,6 +25,16 @@ var complexity: int = 0
 var ratios: Dictionary = {}
 
 
+## 設計檔長到 level 級時的能力（遊戲、工坊、NPC 都用這個）。
+## 速度會隨體型變慢，但最多慢到 0 級速度的 min_speed_ratio 倍（不然長大反而越來越難玩）
+static func at_level(design: CreatureDesign, level: int, balance: CreatureBalance, shape: CreatureDesign = null) -> CreatureStats:
+	var stats: CreatureStats = compute(shape if shape != null else CreatureGrowth.shape_at(design, level, balance), balance)
+	if level > 0:
+		var start: CreatureStats = compute(CreatureGrowth.shape_at(design, 0, balance), balance)
+		stats.speed = maxf(stats.speed, start.speed * balance.min_speed_ratio)
+	return stats
+
+
 ## 算出某個形狀的能力（shape 通常是 CreatureGrowth.shape_at() 的結果）
 static func compute(shape: CreatureDesign, balance: CreatureBalance) -> CreatureStats:
 	var stats := CreatureStats.new()
@@ -33,8 +43,11 @@ static func compute(shape: CreatureDesign, balance: CreatureBalance) -> Creature
 	# 速度：推進力（腳、游動）÷ 體型，越大越慢
 	stats.thrust = balance.base_thrust + count_feet(shape) * balance.thrust_per_foot + body.swim_amplitude * balance.thrust_per_swim
 	stats.speed = clampf(balance.speed_factor * pow(stats.thrust / stats.size, balance.speed_power), balance.min_speed, balance.max_speed)
-	# 轉向：身體越長越難轉
-	var length: float = (body.segment_count - 1) * body.spacing
+	# 轉向：身體越長越難轉；觸手拖在後面，最長那條算一部分（turn_tentacle_ratio）
+	var longest_tentacle: float = 0.0
+	for tentacle: TentacleDesign in shape.tentacles:
+		longest_tentacle = maxf(longest_tentacle, tentacle.length)
+	var length: float = (body.segment_count - 1) * body.spacing + longest_tentacle * balance.turn_tentacle_ratio
 	stats.turn = clampf(balance.base_turn / (1.0 + length * balance.turn_per_length), balance.min_turn, balance.max_turn)
 	# 抓取：最長的觸手
 	for tentacle: TentacleDesign in shape.tentacles:

@@ -6,6 +6,7 @@
 [node name="BattleTank" instance=ExtResource("1_tank")]
 world_size = Vector2(3840, 2160)
 population = 0
+click_to_feed = false
 max_plants = 60
 quality = 1
 

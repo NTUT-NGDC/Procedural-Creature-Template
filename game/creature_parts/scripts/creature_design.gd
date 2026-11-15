@@ -30,6 +30,9 @@ enum Growth { SCALE, LONGER_WITH_LEGS, LONGER }
 @export_enum("等比放大", "變長＋長出腳", "只變長") var growth_mode: int = Growth.SCALE
 ## 變長＋長出腳：每隔幾節長一對腳
 @export_range(1, 20, 1) var legs_every: int = 4
+## 變長的時候（變長＋長出腳、只變長），多出來的體型有幾成拿來加粗身體，其他拿來加節數變長。
+## 0 是只變長、粗細不變；1 是只變粗、長度不變
+@export_range(0, 1, 0.05) var thicken_ratio: float = 0.0
 
 @export_group("零件")
 ## 身體

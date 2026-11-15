@@ -31,5 +31,6 @@ script = ExtResource("2_ltn5a")
 script = ExtResource("5_eyxsg")
 creature_name = "蛇"
 growth_mode = 2
+thicken_ratio = 0.3
 body = SubResource("Resource_kjec8")
 eyes = Array[ExtResource("2_ltn5a")]([SubResource("Resource_676io")])

@@ -97,6 +97,22 @@ func _test_modes() -> void:
 	no_legs.growth_mode = CreatureDesign.Growth.LONGER_WITH_LEGS
 	_expect(CreatureGrowth.shape_at(no_legs, 5, _balance).legs.is_empty(), "② 沒有腳的生物：只變長，不會憑空長腳")
 
+	var thick: CreatureDesign = _example("snake")
+	thick.growth_mode = CreatureDesign.Growth.LONGER
+	thick.thicken_ratio = 0.0
+	var thin_5: CreatureDesign = CreatureGrowth.shape_at(thick, 5, _balance)
+	var start: CreatureDesign = CreatureGrowth.shape_at(thick, 0, _balance)
+	thick.thicken_ratio = 0.5
+	var thick_5: CreatureDesign = CreatureGrowth.shape_at(thick, 5, _balance)
+	_expect(absf(thin_5.body.thickness - start.body.thickness) < start.body.thickness * 0.05, "變粗佔 0 成：只變長，粗細差不多（%.1f → %.1f，節數取整數時微調）" % [start.body.thickness, thin_5.body.thickness])
+	_expect(thick_5.body.thickness > start.body.thickness and thick_5.body.segment_count > start.body.segment_count, "變粗佔 5 成：粗細 %.1f → %.1f、節數 %d → %d，又粗又長" % [start.body.thickness, thick_5.body.thickness, start.body.segment_count, thick_5.body.segment_count])
+	_expect(thick_5.body.segment_count < thin_5.body.segment_count, "變粗佔 5 成：節數比只變長少（%d < %d）" % [thick_5.body.segment_count, thin_5.body.segment_count])
+	_expect(absf(CreatureGrowth.body_size(thick_5.body) - CreatureGrowth.body_size(thin_5.body)) < CreatureGrowth.body_size(thin_5.body) * 0.05, "變粗佔幾成都一樣：升 5 級的體型差不多（%.0f、%.0f）" % [CreatureGrowth.body_size(thick_5.body), CreatureGrowth.body_size(thin_5.body)])
+	var dict: Dictionary = thick.to_dict()
+	_expect(is_equal_approx(CreatureDesign.from_data(dict).thicken_ratio, 0.5), "變粗佔幾成：存讀一致")
+	dict.erase("thicken_ratio")
+	_expect(CreatureDesign.from_data(dict).thicken_ratio == 0.0, "舊的設計檔沒有這一欄：用 0（只變長，跟以前一樣）")
+
 
 func _test_segment_cap() -> void:
 	print("--- 節數上限 ---")
@@ -157,6 +173,19 @@ func _test_stats() -> void:
 	fewer_legs.legs.resize(2)
 	_expect(_stats(fewer_legs).speed < stats.speed, "腳少跑得慢：%.0f < %.0f" % [_stats(fewer_legs).speed, stats.speed])
 	_expect(_stats(base, 5).speed < stats.speed, "越大越慢：升 5 級 %.0f < %.0f" % [_stats(base, 5).speed, stats.speed])
+	var floor_speed: float = stats.speed * _balance.min_speed_ratio
+	_expect(_stats(base, 5).speed < floor_speed, "（前提）只看形狀的話，蜘蛛升 5 級會慢到下限以下：%.0f < %.0f" % [_stats(base, 5).speed, floor_speed])
+	var at_5: CreatureStats = CreatureStats.at_level(base, 5, _balance)
+	_expect(is_equal_approx(at_5.speed, floor_speed), "長大最多慢到 0 級的 %.0f%%：升 5 級 %.0f" % [_balance.min_speed_ratio * 100.0, at_5.speed])
+	var snake: CreatureDesign = _example("snake")
+	_expect(is_equal_approx(CreatureStats.at_level(snake, 1, _balance).speed, _stats(snake, 1).speed), "還沒慢到下限：照形狀算（蛇升 1 級 %.0f）" % _stats(snake, 1).speed)
+	_expect(is_equal_approx(CreatureStats.at_level(base, 0, _balance).speed, stats.speed), "0 級：照形狀算")
+	var snake_tentacle: CreatureDesign = _example("snake")
+	var tentacle := TentacleDesign.new()
+	tentacle.length = 200.0
+	snake_tentacle.tentacles.append(tentacle)
+	_expect(_stats(snake_tentacle).turn < _stats(snake).turn, "觸手越長越難轉：蛇加一條 200 的觸手 %.0f → %.0f 度／秒" % [rad_to_deg(_stats(snake).turn), rad_to_deg(_stats(snake_tentacle).turn)])
+	_expect(_stats(_example("jellyfish")).turn <= _balance.max_turn + 0.001, "身體很短的水母：轉向也不超過上限 %.0f" % rad_to_deg(_balance.max_turn))
 
 	var swimmer: CreatureDesign = _example("snake")
 	var still: CreatureDesign = _example("snake")

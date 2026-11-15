@@ -33,7 +33,8 @@ static func shape_at(design: CreatureDesign, level: int, balance: CreatureBalanc
 	if shape.growth_mode == CreatureDesign.Growth.SCALE:
 		scale_all(shape, sqrt(target / start))  # 面積跟長度的平方成正比，所以開根號
 	else:
-		grow_longer(shape, target, balance.max_grow_segments)
+		shape.body.thickness *= pow(target / start, shape.thicken_ratio)  # 變粗的那幾成：體型跟粗細成正比，粗細乘 (target ÷ start) 的 thicken_ratio 次方
+		grow_longer(shape, target, balance.max_grow_segments)  # 剩下的加節數補上
 		if shape.growth_mode == CreatureDesign.Growth.LONGER_WITH_LEGS:
 			add_legs(shape, design.body.segment_count)
 		fit_complexity(shape, design, balance)
