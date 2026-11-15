@@ -11,7 +11,6 @@ extends Node
 ## 9. reset_pose()：瞬間移動後腳和觸手都在新位置；只有觸手、沒有身體的生物也能動
 ## 10. 掛件：三種動法、十種形狀都不會出錯；「兩邊」會鏡像底下的子節點；彈簧會晃過頭再停下
 ## 11. 眼睛：1～6 顆、四種「看哪裡」都不會出錯；Gradient 只有一個顏色時正常
-## 12. 進階挑戰 grow_challenge：grew 訊號有連接，每升 5 級換一次身體顏色
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/creature_parts_test.tscn
@@ -41,7 +40,6 @@ func _ready() -> void:
 	await _test_tentacle_only()
 	await _test_ornament()
 	await _test_eyes_and_gradient()
-	await _test_grow_challenge()
 
 	if _failures == 0:
 		print("[生物零件測試] 全部 PASS")
@@ -524,22 +522,4 @@ func _test_eyes_and_gradient() -> void:
 	await get_tree().process_frame
 	_expect(true, "漸層清空（null）也不會出錯")
 	food.queue_free()
-	await _free(creature)
-
-
-func _test_grow_challenge() -> void:
-	print("--- 進階挑戰 grow_challenge ---")
-	var creature: Creature = (load("res://example/grow_challenge/grow_challenge.tscn") as PackedScene).instantiate()
-	creature.position = Vector2(640, 360)
-	add_child(creature)
-	await get_tree().process_frame
-	var effect: Node = creature.get_node("GrowEffect")
-	_expect(creature.grew.is_connected(Callable(effect, "_on_creature_grew")), "grew 訊號已經連接到 GrowEffect")
-	var colors: Array[Color] = (effect.get_script() as GDScript).get_script_constant_map()["COLORS"]
-	creature.grow(4)
-	_expect(creature.get_body()._body_color(0.0) == colors[0], "升到第 4 級：第 1 個顏色")
-	creature.grow(1)
-	_expect(creature.get_body()._body_color(0.0) == colors[1], "升到第 5 級：換成第 2 個顏色")
-	creature.grow(1)
-	_expect(creature.get_body()._body_color(0.0) == colors[1], "升到第 6 級：長大後重新擺好身體，顏色還是第 2 個")
 	await _free(creature)

@@ -7,17 +7,17 @@ extends Resource
 
 ## 身體卡（要組出什麼生物），一行一張
 @export_multiline var bodies: String = ""
-## 棲地卡（生態缸要布置成什麼地方），一行一張
-@export_multiline var habitats: String = ""
-## 挑戰卡（組生物的限制、在生態缸要達成的目標），一行一張。行首加 ★ 的是進階卡（要寫一點程式，
-## 在 example/grow_challenge 接 grew 訊號做效果）。欄位名稱沿用 rules
-@export_multiline var rules: String = ""
+## 個性卡（牠怎麼動：在工坊調游動、腳步、觸手、眼睛、掛件的動作），一行一張
+@export_multiline var personalities: String = ""
+## 打法卡（在生態缸想當什麼角色：要強在哪種能力、代價是什麼），一行一張
+@export_multiline var playstyles: String = ""
 
 
 ## 把「一行一張」的文字拆成卡牌清單：去掉每行前後的空白，略過空白行
 static func split_cards(text: String) -> PackedStringArray:
 	var cards: PackedStringArray = []
-	for line: String in text.split("\n"):
+	for line: String in text.split("
+"):
 		var card: String = line.strip_edges()
 		if card != "":
 			cards.append(card)
