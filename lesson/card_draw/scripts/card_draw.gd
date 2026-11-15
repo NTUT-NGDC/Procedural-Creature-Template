@@ -1,5 +1,5 @@
 extends Control
-## 抽卡場景：隨機給「身體＋棲地＋規則」三張靈感卡。
+## 抽卡場景：隨機給「身體＋棲地＋挑戰」三張靈感卡。
 ##
 ## 點某一張卡：只重抽那一張。按下方的「全部重抽」：三張一起重抽。
 ## 重抽時不會抽到跟目前同一張。
@@ -15,7 +15,7 @@ const ADVANCED_MARK: String = "★"
 ## 卡牌內容。預設是 lesson/card_draw/data/card_deck.tres
 @export var deck: CardDeck
 
-## 三張卡的按鈕、顯示內容的文字、「進階」標籤，順序都是：身體、棲地、規則
+## 三張卡的按鈕、顯示內容的文字、「進階」標籤，順序都是：身體、棲地、挑戰
 @onready var _card_buttons: Array[Button] = [%BodyCard, %HabitatCard, %RuleCard]
 @onready var _card_labels: Array[Label] = [%BodyText, %HabitatText, %RuleText]
 @onready var _advanced_badges: Array[Label] = [%BodyBadge, %HabitatBadge, %RuleBadge]
@@ -43,7 +43,7 @@ func _ready() -> void:
 	redraw_all()
 
 
-## 重抽第 index 張卡（0 = 身體、1 = 棲地、2 = 規則）
+## 重抽第 index 張卡（0 = 身體、1 = 棲地、2 = 挑戰）
 func redraw_card(index: int) -> void:
 	_current[index] = pick_different(_pools[index], _current[index])
 	_card_labels[index].text = display_text(_current[index])

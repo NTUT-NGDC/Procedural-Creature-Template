@@ -151,7 +151,7 @@ func _test_ornaments() -> void:
 	design.ornaments.clear()
 	var record := _record(design)
 	_check(7, design, record, false, "還沒有掛件", "沒有掛件（動法）")
-	_check(8, design, record, false, "還沒有掛件", "沒有掛件（圖）")
+	_check(8, design, record, false, "匯入圖片", "沒有掛件、身體也沒有圖")
 	var ornament := OrnamentDesign.new()
 	design.ornaments.append(ornament)
 	_check(7, design, record, false, "拍動", "掛件是固定的")
@@ -160,6 +160,9 @@ func _test_ornaments() -> void:
 	ornament.image_file = "head.png"
 	_check(7, design, record, true, "", "掛件會彈")
 	_check(8, design, record, true, "", "掛件有自己的圖")
+	ornament.image_file = ""
+	design.body.segment_image = "scale.png"
+	_check(8, design, record, true, "", "身體每一節有自己的圖")
 
 
 func _test_broken_data() -> void:

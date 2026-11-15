@@ -157,4 +157,7 @@ static func _check_ornament_image(design: CreatureDesign) -> String:
 	for ornament: OrnamentDesign in design.ornaments:
 		if ornament.image_file != "":
 			return ""
-	return "選一個掛件按「匯入圖片」，放一張自己畫的 PNG" if not design.ornaments.is_empty() else "還沒有掛件：到「掛件」分頁按「新增」，再按「匯入圖片」"
+	for field: String in BodyDesign.image_fields():
+		if design.body.get(field) != "":
+			return ""
+	return "在「身體」分頁（頭、每一節、尾巴的圖）或一個掛件按「匯入圖片」，放一張自己畫的 PNG"

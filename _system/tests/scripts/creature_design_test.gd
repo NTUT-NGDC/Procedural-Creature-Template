@@ -115,6 +115,26 @@ func _test_garbage() -> void:
 		"ornaments": [{"image_file": "../../secret/evil.png", "offset": [1e9, -1e9]}, {"image_file": "virus.gd"}],
 	})
 	_expect(extreme.creature_name.length() == PartDesign.MAX_TEXT, "名字太長：剪到 %d 字" % PartDesign.MAX_TEXT)
+	var long_file: String = "a".repeat(52) + ".png"  # 56 個字，比名字的上限長
+	var with_files: CreatureDesign = CreatureDesign.from_data({"body": {"segment_image": long_file}, "ornaments": [{"image_file": long_file}]})
+	_expect(with_files.body.segment_image == long_file and with_files.ornaments[0].image_file == long_file, "圖的檔名比名字長（%d 字）：照樣讀得到，.png 沒被剪掉" % long_file.length())
+	var old_body: BodyDesign = CreatureDesign.from_data({"body": {"image_scale": 2.5}}).body
+	_expect(old_body.head_image_scale == 2.5 and old_body.segment_image_scale == 2.5 and old_body.tail_image_scale == 2.5, "舊資料只有一個「圖的大小」：三張圖都用它")
+	var old_text: String = "[gd_resource type=\"Resource\" script_class=\"BodyDesign\" format=3]
+
+[ext_resource type=\"Script\" path=\"res://game/creature_parts/scripts/body_design.gd\" id=\"1\"]
+
+[resource]
+script = ExtResource(\"1\")
+image_scale = 3.5
+"
+	var old_path: String = "user://old_body_test.tres"
+	var file := FileAccess.open(old_path, FileAccess.WRITE)
+	file.store_string(old_text)
+	file.close()
+	var old_tres: BodyDesign = ResourceLoader.load(old_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	_expect(old_tres != null and old_tres.segment_image_scale == 3.5 and old_tres.head_image_scale == 3.5, "舊的 .tres 只有一個「圖的大小」：三張圖都用它")
+	DirAccess.remove_absolute(old_path)
 	_expect(extreme.growth_mode == 2, "選單超出範圍：夾在最後一個選項")
 	_expect(extreme.body.segment_count == 80, "節數 99999 → 80（實際 %d）" % extreme.body.segment_count)
 	_expect(extreme.body.spacing == 14.0, "NaN 不收：維持預設 14")

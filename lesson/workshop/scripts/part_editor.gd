@@ -7,8 +7,8 @@ extends VBoxContainer
 
 ## 改了某個欄位
 signal changed()
-## 掛件按了「匯入圖片」
-signal import_image_requested(part: OrnamentDesign)
+## 按了「匯入圖片」：part 的 field 這一欄要放圖（掛件的 image_file、身體的頭／每一節／尾巴的圖）
+signal import_image_requested(part: PartDesign, field: String)
 
 ## 位置偏移（Vector2）的滑桿範圍（像素）
 const OFFSET_RANGE: float = 100.0
@@ -41,8 +41,8 @@ func edit(part: PartDesign, labels: WorkshopLabels, skip: PackedStringArray = Pa
 func _add_field(prop: Dictionary) -> void:
 	var field: String = prop.name
 	var control: Control = null
-	if field == "image_file":
-		control = _image_row()
+	if field == "image_file" or field in BodyDesign.image_fields():
+		control = _image_row(field)
 	elif prop.hint == PROPERTY_HINT_ENUM:
 		control = _option(field, prop.hint_string.split(","))
 	elif prop.type == TYPE_BOOL:
@@ -167,25 +167,25 @@ func _curve(field: String) -> Control:
 	return editor
 
 
-## 掛件的圖：顯示檔名＋「匯入圖片」「拿掉」
-func _image_row() -> Control:
-	var ornament: OrnamentDesign = _part as OrnamentDesign
+## 放圖的欄位（掛件的圖、身體的頭／每一節／尾巴的圖）：顯示檔名＋「匯入圖片」「拿掉」
+func _image_row(field: String) -> Control:
+	var part: PartDesign = _part
 	var box := HBoxContainer.new()
 	var file_label := Label.new()
-	file_label.text = ornament.image_file if ornament.image_file != "" else "（沒有）"
+	file_label.text = part.get(field) if part.get(field) != "" else "（沒有）"
 	file_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	file_label.clip_text = true
 	box.add_child(file_label)
 	var import_button := Button.new()
 	import_button.text = "匯入圖片"
 	import_button.tooltip_text = "選一張 PNG（去背的圖最好），會複製到你的生物資料夾"
-	import_button.pressed.connect(func() -> void: import_image_requested.emit(ornament))
+	import_button.pressed.connect(func() -> void: import_image_requested.emit(part, field))
 	box.add_child(import_button)
 	var remove := Button.new()
 	remove.text = "拿掉"
-	remove.disabled = ornament.image_file == ""
+	remove.disabled = part.get(field) == ""
 	remove.pressed.connect(func() -> void:
-		_set_field("image_file", "")
+		_set_field(field, "")
 		file_label.text = "（沒有）"
 		remove.disabled = true)
 	box.add_child(remove)

@@ -28,6 +28,8 @@ const HISTORY_DELAY: float = 0.4
 const MAX_HISTORY: int = 100
 ## 匯入的圖最大幾像素（太大會縮小）
 const MAX_IMAGE_SIZE: int = 512
+## 匯入的圖的檔名最多幾個字（不含 .png），太長的剪掉（設計檔讀檔名最多 PartDesign.MAX_FILE_NAME 個字）
+const MAX_IMAGE_NAME: int = 32
 const MAX_PREVIEW_LEVEL: int = 10
 ## 右邊分頁的寬度：固定的一段＋跟著字變的一段（小字 320、中字約 400、大字 500）
 const PANEL_WIDTH_FIXED: float = 140.0
@@ -51,7 +53,9 @@ var _history: Array[Dictionary] = []
 var _history_index: int = 0
 var _history_timer: Timer
 var _old_show_bones: bool = false
-var _pending_image_part: OrnamentDesign
+## 「匯入圖片」選好檔案之後，圖要放進哪個零件的哪一欄
+var _pending_image_part: PartDesign
+var _pending_image_field: String = "image_file"
 
 var _name_edit: LineEdit
 var _folder_edit: LineEdit
@@ -202,11 +206,16 @@ func save_to(folder: String) -> Error:
 
 ## 把設計檔用到的圖都複製到 folder（例如讀了範例再存檔、或第一次匯入圖片）
 func _gather_images(folder: String) -> void:
+	var files: PackedStringArray = []
 	for part: OrnamentDesign in design.ornaments:
-		if part.image_file == "":
+		files.append(part.image_file)
+	for field: String in BodyDesign.image_fields():
+		files.append(design.body.get(field))
+	for file: String in files:
+		if file == "":
 			continue
-		var source: String = design.image_path(part.image_file)
-		var target: String = folder.path_join(part.image_file)
+		var source: String = design.image_path(file)
+		var target: String = folder.path_join(file)
 		if source != target and FileAccess.file_exists(source):
 			DirAccess.copy_absolute(ProjectSettings.globalize_path(source), ProjectSettings.globalize_path(target))
 	design.image_folder = folder
@@ -220,16 +229,18 @@ static func _is_valid_folder(folder: String) -> bool:
 # ---------------------------------------------------------------- 匯入圖片
 
 
-func _on_import_requested(part: OrnamentDesign) -> void:
+func _on_import_requested(part: PartDesign, field: String) -> void:
 	if not _is_valid_folder(_folder_edit.text.strip_edges()):
 		_show_message("先在上面填「資料夾」（英文、數字、底線），圖片才知道要放哪裡")
 		return
 	_pending_image_part = part
+	_pending_image_field = field
 	_file_dialog.popup_centered_ratio(0.7)
 
 
-## 選好圖片：太大就縮小，存成 PNG 放進生物的資料夾，掛件改成顯示這張圖
-func import_image(source_path: String, part: OrnamentDesign) -> bool:
+## 選好圖片：太大就縮小，存成 PNG 放進生物的資料夾，part 的 field 這一欄改成這張圖
+## （掛件的 image_file，或身體的 head_image、segment_image、tail_image）
+func import_image(source_path: String, part: PartDesign, field: String = "image_file") -> bool:
 	var image: Image = Image.load_from_file(source_path)
 	if image == null or image.is_empty():
 		_show_message("讀不到這張圖：%s" % source_path.get_file())
@@ -243,21 +254,25 @@ func import_image(source_path: String, part: OrnamentDesign) -> bool:
 	_gather_images(folder)
 	var file: String = _safe_image_name(source_path.get_file())
 	image.save_png(folder.path_join(file))
-	part.image_file = file
-	if part.shape == Ornament.Shape.HORN:
-		part.shape = Ornament.Shape.NONE  # 預設的「角」換成只顯示圖
+	part.set(field, file)
+	var ornament: OrnamentDesign = part as OrnamentDesign
+	if ornament != null and ornament.shape == Ornament.Shape.HORN:
+		ornament.shape = Ornament.Shape.NONE  # 預設的「角」換成只顯示圖
 	_on_design_changed()
-	_rebuild_list("ornaments")
+	if ornament != null:
+		_rebuild_list("ornaments")
+	else:
+		_body_editor.edit(design.body, LABELS)  # 顯示新的檔名
 	_show_message("匯入了 %s（記得按「存檔」）" % file)
 	return true
 
 
-## 圖的檔名：只用英文、數字、底線、減號，不行的話取一個新名字
+## 圖的檔名：只用英文、數字、底線、減號，不行的話取一個新名字；太長的剪到 MAX_IMAGE_NAME 個字
 static func _safe_image_name(file: String) -> String:
 	var base: String = file.get_basename().to_lower()
 	if RegEx.create_from_string("^[a-z0-9_\\-]+$").search(base) == null:
 		base = "image_%d" % (Time.get_ticks_msec() % 100000)
-	return base + ".png"
+	return base.left(MAX_IMAGE_NAME) + ".png"
 
 
 # ---------------------------------------------------------------- 改了設計檔
@@ -555,6 +570,7 @@ func _build_ui() -> void:
 	_body_editor = PartEditor.new()
 	_body_editor.can_change = _can_change
 	_body_editor.changed.connect(_on_design_changed)
+	_body_editor.import_image_requested.connect(_on_import_requested)
 	_add_tab("身體", _body_editor)
 	for info: Array in _list_infos():
 		_add_tab(info[1], _build_list_tab(info[0], info[1], info[3]))
@@ -575,7 +591,7 @@ func _build_ui() -> void:
 	_file_dialog.use_native_dialog = true
 	_file_dialog.file_selected.connect(func(path: String) -> void:
 		if _pending_image_part != null:
-			import_image(path, _pending_image_part))
+			import_image(path, _pending_image_part, _pending_image_field))
 	add_child(_file_dialog)
 	_confirm = ConfirmationDialog.new()
 	_confirm.ok_button_text = "蓋掉"

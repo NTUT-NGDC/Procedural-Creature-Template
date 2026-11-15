@@ -271,7 +271,7 @@ mouse_filter = 2
 [node name="CategoryLabel" type="Label" parent="VBox/Cards/RuleCard/Margin/VBox" unique_id=1999895854]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "規則"
+text = "挑戰"
 horizontal_alignment = 1
 
 [node name="RuleText" type="Label" parent="VBox/Cards/RuleCard/Margin/VBox" unique_id=1126456818]
@@ -279,7 +279,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_font_sizes/font_size = 33
-text = "（規則）"
+text = "（挑戰）"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3

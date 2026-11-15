@@ -33,7 +33,60 @@ extends PartDesign
 ## 花紋顏色
 @export var pattern_color: Color = Color("#2f6e45")
 
+@export_group("自己的圖")
+## 頭那一節的圖（PNG 檔名，放在生物的資料夾）。畫的時候頭朝右
+@export var head_image: String = ""
+## 頭的圖大小：1 是圖剛好跟身體最粗的地方一樣粗
+@export_range(0.1, 5, 0.05) var head_image_scale: float = 1.0
+## 每一節的圖（像鱗片、珠子）。沒有頭、尾巴的圖時，頭和尾巴也用這張
+@export var segment_image: String = ""
+## 每一節的圖大小：1 是圖剛好跟那一節一樣粗
+@export_range(0.1, 5, 0.05) var segment_image_scale: float = 1.0
+## 尾巴那一節的圖
+@export var tail_image: String = ""
+## 尾巴的圖大小：1 是圖剛好跟身體最粗的地方一樣粗
+@export_range(0.1, 5, 0.05) var tail_image_scale: float = 1.0
+## 圖的旋轉（度）：畫的時候頭不是朝右，用這個轉回來
+@export_range(-180, 180, 1, "radians_as_degrees") var image_rotation: float = 0.0
+## 也畫身體：勾起來是圖疊在程式畫的身體上面（像鱗片）；不勾只畫圖（像一串珠子）
+@export var draw_body: bool = true
+
 
 ## 等比放大時要一起放大的欄位
 func length_fields() -> PackedStringArray:
 	return PackedStringArray(["spacing", "thickness", "swim_amplitude"])
+
+
+## 圖的檔名只在設計檔裡；身體節點拿的是讀好的圖（Creature 幫忙讀）
+func design_only_fields() -> PackedStringArray:
+	return PackedStringArray(image_fields())
+
+
+## 放圖的欄位（工坊顯示「匯入圖片」、存檔時把圖一起複製）
+static func image_fields() -> PackedStringArray:
+	return PackedStringArray(["head_image", "segment_image", "tail_image"])
+
+
+## 讀舊的設計檔（.tres）：以前只有一個「圖的大小」（image_scale），三張圖都用它。回傳 true 表示認得這個欄位
+func _set(property: StringName, value: Variant) -> bool:
+	if property == &"image_scale" and (value is float or value is int):
+		var scale: float = clampf(float(value), 0.1, 5.0)
+		head_image_scale = scale
+		segment_image_scale = scale
+		tail_image_scale = scale
+		return true
+	return false
+
+
+## 讀資料時，圖的檔名只留「檔名」本身、而且要是 .png，不能指到別的資料夾
+func from_dict(data: Dictionary) -> void:
+	super(data)
+	# 舊的設計檔只有一個「圖的大小」（image_scale）：三張圖都用它
+	var old_scale: Variant = data.get("image_scale")
+	if (old_scale is float or old_scale is int) and not data.has("segment_image_scale"):
+		var scale: float = clampf(float(old_scale), 0.1, 5.0)
+		head_image_scale = scale
+		segment_image_scale = scale
+		tail_image_scale = scale
+	for field: String in image_fields():
+		set(field, OrnamentDesign.safe_image_file(get(field)))

@@ -10,9 +10,10 @@ extends Resource
 ## to_dict()／from_dict()：轉成只有數字、字串、陣列的資料，連線時傳這個，不傳 .tres。
 ## from_dict() 會檢查每一欄的型別，並把數字夾回 @export_range 的範圍內，收到奇怪的資料也不會出事。
 
-## 漸層、曲線最多幾個點；字串最多幾個字；位置偏移最多幾像素
+## 漸層、曲線最多幾個點；字串最多幾個字（圖的檔名另外算，可以長一點）；位置偏移最多幾像素
 const MAX_POINTS: int = 16
 const MAX_TEXT: int = 40
+const MAX_FILE_NAME: int = 64
 const MAX_OFFSET: float = 500.0
 
 
@@ -109,6 +110,11 @@ static func encode(value: Variant) -> Variant:
 
 
 ## 資料 → 欄位的值（prop 是欄位的資訊，用來知道型別和範圍）。不合格回傳 null
+## 放圖檔名的欄位（掛件的 image_file、身體的 head_image……）：剪太短會把「.png」剪掉，所以上限另外算
+static func _is_file_field(field: String) -> bool:
+	return field == "image_file" or field.ends_with("_image")
+
+
 static func decode(value: Variant, prop: Dictionary) -> Variant:
 	match prop.type:
 		TYPE_BOOL:
@@ -118,7 +124,7 @@ static func decode(value: Variant, prop: Dictionary) -> Variant:
 		TYPE_FLOAT:
 			return _clamp_to_range(value, prop) if _is_number(value) else null
 		TYPE_STRING:
-			return (value as String).left(MAX_TEXT) if value is String else null
+			return (value as String).left(MAX_FILE_NAME if _is_file_field(prop.name) else MAX_TEXT) if value is String else null
 		TYPE_COLOR:
 			return _decode_color(value)
 		TYPE_VECTOR2:

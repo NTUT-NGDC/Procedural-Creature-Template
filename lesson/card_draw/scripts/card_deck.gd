@@ -9,7 +9,8 @@ extends Resource
 @export_multiline var bodies: String = ""
 ## 棲地卡（生態缸要布置成什麼地方），一行一張
 @export_multiline var habitats: String = ""
-## 規則卡（要改哪一條遊戲規則），一行一張。行首加 ★ 的是進階卡（要寫一點程式）
+## 挑戰卡（組生物的限制、在生態缸要達成的目標），一行一張。行首加 ★ 的是進階卡（要寫一點程式，
+## 在 example/grow_challenge 接 grew 訊號做效果）。欄位名稱沿用 rules
 @export_multiline var rules: String = ""
 
 

@@ -7,7 +7,7 @@ extends Node
 ## 5. 預覽等級：生物照長大方式變大，能力跟著變
 ## 6. 存檔：資料夾名稱不合格不存；合格就存到 my_creature/<資料夾>/design.tres，讀回來一樣；蓋掉別的資料夾要先確認
 ## 7. 讀範例（塗鴉蛇）再存檔：用到的圖一起複製過去
-## 8. 匯入圖片：太大的縮到 512，放進生物的資料夾，掛件顯示這張圖
+## 8. 匯入圖片：太大的縮到 512，放進生物的資料夾，掛件顯示這張圖；身體的每一節也可以放圖、存讀檔還在、奇怪的檔名擋掉
 ## 9. 顏色、粗細形狀的編輯器：簡單模式、加顏色、選內建形狀
 ## 10. 複雜度上限：顯示「複雜度 x / 上限」；超過上限的滑桿、新增被擋下來，按鈕變灰；本來就超過的只能往下減
 ## 11. 字的大小：換成中字、大字，字、右邊分頁、名稱欄跟著變；存進設定檔，重開工坊還記得；設定檔亂掉用小字；大字時很長的提示會換行
@@ -175,6 +175,49 @@ func _test_import_image() -> void:
 	_expect(has_texture, "生物身上看得到這張圖")
 	_expect(_workshop.call("_safe_image_name", "我的 頭.PNG").begins_with("image_") and _workshop.call("_safe_image_name", "Head-1.png") == "head-1.png", "中文、空白的檔名換成英文名字")
 	DirAccess.remove_absolute(source)
+
+	print("--- 身體的圖 ---")
+	var bead: String = ProjectSettings.globalize_path("user://workshop_test_bead_with_a_very_long_file_name_1234567890.png")
+	var bead_image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	bead_image.fill(Color.SKY_BLUE)
+	bead_image.save_png(bead)
+	_workshop.call("import_image", bead, _design().body, "segment_image")
+	await _frames(2)
+	var body: ChainBody = _creature().get_body()
+	var bead_name: String = _design().body.segment_image
+	_expect(bead_name.begins_with("workshop_test_bead") and bead_name.length() <= 36, "身體的「每一節的圖」改成這張；檔名太長剪短（%s）" % bead_name)
+	_expect(FileAccess.file_exists("res://my_creature/%s/%s" % [TEST_FOLDERS[1], bead_name]), "圖放進生物的資料夾")
+	_expect(body.segment_texture != null and body.segment_texture.get_width() == 32 and body.head_texture == null, "身體讀到每一節的圖（頭沒有另外放圖）")
+	var row_has_file: bool = false
+	for label: Node in (_workshop.get("_body_editor") as Node).find_children("*", "Label", true, false):
+		row_has_file = row_has_file or (label as Label).text == bead_name
+	_expect(row_has_file, "身體分頁顯示圖的檔名")
+	_design().body.head_image_scale = 2.0
+	_design().body.segment_image_scale = 0.5
+	_workshop.call("_on_design_changed")
+	body = _creature().get_body()
+	_expect(body.head_image_scale == 2.0 and body.segment_image_scale == 0.5 and body.tail_image_scale == 1.0, "頭、每一節、尾巴的圖大小各調各的")
+	var size_rows: int = 0
+	for label: Node in (_workshop.get("_body_editor") as Node).find_children("*", "Label", true, false):
+		if (label as Label).text in ["頭的圖大小", "每一節的圖大小", "尾巴的圖大小"]:
+			size_rows += 1
+	_expect(size_rows == 3, "身體分頁有三個「圖大小」的滑桿（%d 個）" % size_rows)
+	_design().body.draw_body = false
+	_workshop.call("_on_design_changed")
+	_expect(not _creature().get_body().draw_body, "取消「也畫身體」：只畫圖")
+	_workshop.call("_on_save_pressed")
+	var reloaded: CreatureDesign = ResourceLoader.load("res://my_creature/%s/design.tres" % TEST_FOLDERS[1], "", ResourceLoader.CACHE_MODE_IGNORE)
+	_expect(reloaded != null and reloaded.body.segment_image == bead_name and reloaded.load_image(bead_name) != null, "存檔再讀回來：身體的圖還在")
+	_workshop.call("_load_design", "res://my_creature/%s/design.tres" % TEST_FOLDERS[1])
+	await _frames(2)
+	_expect(_creature().get_body().segment_texture != null, "用工坊的「讀取」重開：身上還看得到圖")
+	var hacked: CreatureDesign = CreatureDesign.from_data({"body": {"head_image": "../../secret.png", "tail_image": "evil.exe"}})
+	_expect(hacked.body.head_image == "secret.png" and hacked.body.tail_image == "", "收到奇怪的檔名：只留檔名本身、不是 PNG 就不要")
+	_design().body.segment_image = ""
+	_design().body.draw_body = true
+	_workshop.call("_on_design_changed")
+	_expect(_creature().get_body().segment_texture == null, "拿掉圖：身體也不畫圖了")
+	DirAccess.remove_absolute(bead)
 
 
 func _test_color_and_curve() -> void:

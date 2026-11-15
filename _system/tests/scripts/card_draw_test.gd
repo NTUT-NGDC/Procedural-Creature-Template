@@ -42,7 +42,7 @@ func _test_deck_data() -> void:
 		return
 	_expect(CardDeck.split_cards(deck.bodies).size() == 15, "身體卡 15 張")
 	_expect(CardDeck.split_cards(deck.habitats).size() == 15, "棲地卡 15 張")
-	_expect(CardDeck.split_cards(deck.rules).size() == 15, "規則卡 15 張")
+	_expect(CardDeck.split_cards(deck.rules).size() == 15, "挑戰卡 15 張")
 
 
 func _test_split_cards() -> void:
@@ -158,7 +158,7 @@ func _test_advanced_cards() -> void:
 	for card: String in CardDeck.split_cards(deck.rules):
 		if CARD_DRAW_SCRIPT.is_advanced(card):
 			advanced_count += 1
-	_expect(advanced_count == 5, "規則卡裡有 5 張進階卡")
+	_expect(advanced_count == 5, "挑戰卡裡有 5 張進階卡")
 
 	var card_draw: Control = await _spawn(null)
 	var rule_label: Label = card_draw.get_node("%RuleText")

@@ -83,6 +83,36 @@ enum Pattern { NONE, SPOTS, STRIPES, FIN }
 		pattern_color = value
 		queue_redraw()
 
+@export_group("自己的圖")
+## 頭、每一節、尾巴的圖大小：1 是圖剛好跟那一節一樣粗（頭、尾巴跟身體最粗的地方比）
+@export_range(0.1, 5, 0.05) var head_image_scale: float = 1.0:
+	set(value):
+		head_image_scale = value
+		queue_redraw()
+@export_range(0.1, 5, 0.05) var segment_image_scale: float = 1.0:
+	set(value):
+		segment_image_scale = value
+		queue_redraw()
+@export_range(0.1, 5, 0.05) var tail_image_scale: float = 1.0:
+	set(value):
+		tail_image_scale = value
+		queue_redraw()
+## 圖的旋轉：畫的時候頭不是朝右，用這個轉回來
+@export_range(-180, 180, 1, "radians_as_degrees") var image_rotation: float = 0.0:
+	set(value):
+		image_rotation = value
+		queue_redraw()
+## 也畫身體：勾起來是圖疊在身體上面；不勾只畫圖
+@export var draw_body: bool = true:
+	set(value):
+		draw_body = value
+		queue_redraw()
+
+## 頭、每一節、尾巴的圖（Creature 照設計檔讀好放進來，沒有就是 null）
+var head_texture: Texture2D
+var segment_texture: Texture2D
+var tail_texture: Texture2D
+
 ## 關節位置（全局座標），[0] 是頭。這是演算法算出來的位置
 var _joints: PackedVector2Array = []
 ## 畫出來的位置（全局座標）＝關節＋游動的左右擺動
@@ -342,6 +372,15 @@ func _draw() -> void:
 	if _display.size() < 2:
 		return
 	_draw_boost_glow()
+	if draw_body or not _has_images():
+		_draw_body()
+	_draw_images()
+	if CreatureDebug.bones_visible(self):
+		_draw_bones()
+
+
+## 程式畫的身體：輪廓、漸層、花紋、外框
+func _draw_body() -> void:
 	var sides: Array = _build_sides()
 	var last: int = _display.size() - 1
 	# 平常整條身體一次畫完。身體捲起來、跟自己重疊時，輪廓會交叉、畫不出來，
@@ -355,9 +394,6 @@ func _draw() -> void:
 			if not _draw_section(sides, start, mini(end + 1, last), end):
 				_draw_fallback(start, end)
 			start -= size
-
-	if CreatureDebug.bones_visible(self):
-		_draw_bones()
 
 
 ## 畫第 from～to 節（含輪廓、花紋、外框）。花紋只畫到 pattern_end，多畫的那一節留給後面那段。
@@ -460,6 +496,32 @@ func _smooth_ts(ts: PackedFloat32Array) -> PackedFloat32Array:
 ## 第 i 節的角度（本地座標）
 func _local_angle(i: int) -> float:
 	return _angles[i] - global_rotation
+
+
+func _has_images() -> bool:
+	return head_texture != null or segment_texture != null or tail_texture != null
+
+
+## 自己的圖：每一節畫一張，跟著那一節轉、大小跟著那一節的粗細。從尾巴往頭畫，頭蓋在最上面。
+## 頭、尾巴的圖用身體最粗的地方當大小（尾巴尖很細，照那一節的粗細會小到看不見）
+func _draw_images() -> void:
+	var last: int = _display.size() - 1
+	for i: int in range(last, -1, -1):
+		var texture: Texture2D = segment_texture
+		var width: float = get_width(i) * segment_image_scale
+		if i == 0 and head_texture != null:
+			texture = head_texture
+			width = thickness * head_image_scale
+		elif i == last and tail_texture != null:
+			texture = tail_texture
+			width = thickness * tail_image_scale
+		if texture == null:
+			continue
+		var image_size: Vector2 = texture.get_size()
+		var fit: float = width * 2.0 / maxf(image_size.x, image_size.y)  # 長邊剛好是那一節的粗細 × 圖的大小
+		draw_set_transform(to_local(_display[i]), _local_angle(i) + image_rotation, Vector2(fit, fit))
+		draw_texture(texture, -image_size / 2.0)
+	draw_set_transform(Vector2.ZERO)
 
 
 ## 加速時（像 Slither）：身體外面一圈發光，一閃一閃、光從頭跑到尾巴。先畫，身體蓋在上面，只露出外圈

@@ -62,7 +62,7 @@ done_text = "掛件不算能力，想怎麼裝飾都可以。"
 [sub_resource type="Resource" id="Step_9"]
 script = ExtResource("2_step")
 title = "9. 額外：自己畫的圖"
-description = "選一個掛件按「匯入圖片」，放一張自己畫的 PNG。"
+description = "在「身體」分頁（頭、每一節、尾巴的圖）或選一個掛件，按「匯入圖片」放一張自己畫的 PNG。"
 hint = "要先填「資料夾」。圖會複製到你的生物的資料夾裡，記得再存一次檔。"
 done_text = "你的生物有自己畫的樣子了。"
 

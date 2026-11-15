@@ -113,6 +113,8 @@ var _built_body: ChainBody
 var _built_parts: Array[Node] = []
 ## 長出來時的「結構」（零件數量、左右、圖）。結構沒變就只更新屬性，不重長
 var _built_structure: String = ""
+## 身體的圖現在讀的是哪幾個檔（檔名沒變就不重讀）
+var _body_image_key: String = ""
 
 
 func _ready() -> void:
@@ -452,7 +454,21 @@ func apply_design() -> void:
 			parts[i].apply_to(_built_parts[i])
 			if parts[i] is OrnamentDesign:
 				_apply_image(_built_parts[i], parts[i])
+	_apply_body_images()
 	_sort_parts()
+
+
+## 身體自己的圖（頭、每一節、尾巴）：檔名變了才重新讀
+func _apply_body_images() -> void:
+	var body_design: BodyDesign = shape.body
+	var key: String = "|".join([body_design.head_image, body_design.segment_image, body_design.tail_image, shape.image_folder])
+	if key == _body_image_key:
+		return
+	_body_image_key = key
+	_built_body.head_texture = shape.load_image(body_design.head_image)
+	_built_body.segment_texture = shape.load_image(body_design.segment_image)
+	_built_body.tail_texture = shape.load_image(body_design.tail_image)
+	_built_body.queue_redraw()
 
 
 ## 零件的上下順序：掛得越靠尾巴越先畫（在下面），越靠頭越後畫（在上面）；眼睛永遠在最上面。
@@ -535,6 +551,7 @@ func _clear_built() -> void:
 	_built_body = null
 	_built_parts.clear()
 	_built_structure = ""
+	_body_image_key = ""
 
 
 ## 設計檔的「結構」寫成一串字：零件的種類和數量、掛件的左右和圖。這串字變了就要重長
