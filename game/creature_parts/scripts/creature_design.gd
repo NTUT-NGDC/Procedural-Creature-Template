@@ -97,6 +97,36 @@ static func _decode_list(value: Variant, script: GDScript, limit: int) -> Array:
 	return result
 
 
+# ---------------------------------------------------------------- 找設計檔
+
+
+## 列出資料夾裡的生物（一隻一個資料夾，裡面有 design.tres）。
+## folders 是「資料夾 → 顯示的前綴」，例如 {"res://my_creature/": "我的"}，照順序列。
+## 回傳 [{"path": 設計檔路徑, "label": "我的：小火龍（dragon）"}]
+static func list_designs(folders: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for folder: String in folders:
+		if not DirAccess.dir_exists_absolute(folder):
+			continue
+		for sub: String in DirAccess.get_directories_at(folder):
+			var path: String = folder + sub + "/design.tres"
+			if not FileAccess.file_exists(path):
+				continue
+			var loaded: CreatureDesign = load_fresh(path)
+			result.append({"path": path, "label": "%s：%s（%s）" % [folders[folder], loaded.creature_name if loaded != null else "?", sub]})
+	return result
+
+
+## 從檔案讀一份新的設計檔（不用快取：工坊剛存過的也會是最新的）。讀不到回傳 null
+static func load_fresh(path: String) -> CreatureDesign:
+	if not ResourceLoader.exists(path):
+		return null
+	var loaded: CreatureDesign = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) as CreatureDesign
+	if loaded != null:
+		loaded.image_folder = path.get_base_dir()  # 不用快取讀的話，保險起見自己記住圖在哪
+	return loaded
+
+
 # ---------------------------------------------------------------- 自己的圖
 
 

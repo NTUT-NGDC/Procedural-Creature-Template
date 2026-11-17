@@ -162,16 +162,9 @@ func _refresh_load_list() -> void:
 	_load_option.clear()
 	_load_option.add_item("讀取……")
 	_load_paths = PackedStringArray([""])
-	for folder: String in DESIGN_FOLDERS:
-		if not DirAccess.dir_exists_absolute(folder):
-			continue
-		for sub: String in DirAccess.get_directories_at(folder):
-			var path: String = folder + sub + "/design.tres"
-			if not FileAccess.file_exists(path):
-				continue
-			var loaded: CreatureDesign = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) as CreatureDesign
-			_load_option.add_item("%s：%s（%s）" % [DESIGN_FOLDERS[folder], loaded.creature_name if loaded != null else "?", sub])
-			_load_paths.append(path)
+	for item: Dictionary in CreatureDesign.list_designs(DESIGN_FOLDERS):
+		_load_option.add_item(item.label)
+		_load_paths.append(item.path)
 
 
 func _on_save_pressed() -> void:

@@ -54,12 +54,59 @@ theme_override_font_sizes/font_size = 44
 text = "連線對戰"
 horizontal_alignment = 1
 
-[node name="CreatureLabel" type="Label" parent="Center/Panel/VBox"]
+[node name="CreatureRow" type="HBoxContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="PreviewFrame" type="SubViewportContainer" parent="Center/Panel/VBox/CreatureRow"]
+custom_minimum_size = Vector2(264, 176)
+layout_mode = 2
+stretch = true
+
+[node name="PreviewViewport" type="SubViewport" parent="Center/Panel/VBox/CreatureRow/PreviewFrame"]
+unique_name_in_owner = true
+handle_input_locally = false
+size = Vector2i(264, 176)
+render_target_update_mode = 4
+
+[node name="Water" type="ColorRect" parent="Center/Panel/VBox/CreatureRow/PreviewFrame/PreviewViewport"]
+offset_left = -2000.0
+offset_top = -2000.0
+offset_right = 2000.0
+offset_bottom = 2000.0
+mouse_filter = 2
+color = Color(0.07, 0.235, 0.275, 1)
+
+[node name="PreviewCamera" type="Camera2D" parent="Center/Panel/VBox/CreatureRow/PreviewFrame/PreviewViewport"]
+unique_name_in_owner = true
+zoom = Vector2(0.5, 0.5)
+
+[node name="CreatureBox" type="VBoxContainer" parent="Center/Panel/VBox/CreatureRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 11
+
+[node name="CreatureLabel" type="Label" parent="Center/Panel/VBox/CreatureRow/CreatureBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "你的生物"
+
+[node name="CreatureOption" type="OptionButton" parent="Center/Panel/VBox/CreatureRow/CreatureBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "你的生物："
-horizontal_alignment = 1
+clip_text = true
+fit_to_longest_item = false
+
+[node name="CreatureInfo" type="Label" parent="Center/Panel/VBox/CreatureRow/CreatureBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(290, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.8, 1)
+theme_override_font_sizes/font_size = 11
+text = "（說明）"
+autowrap_mode = 3
 
 [node name="NameEdit" type="LineEdit" parent="Center/Panel/VBox"]
 unique_name_in_owner = true

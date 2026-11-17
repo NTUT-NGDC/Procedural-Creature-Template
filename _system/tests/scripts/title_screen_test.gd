@@ -272,6 +272,15 @@ func _test_full_flow() -> void:
 		_expect(not get_tree().paused and WaterFlow.strength == 0.0, "第 %d 輪：回到標題時已解除暫停、水流歸零" % round_number)
 
 
+## 選單裡文字含有 text 的那一項（找不到回傳 0）
+func _find_item(option: OptionButton, text: String) -> int:
+	for i: int in option.item_count:
+		if text in option.get_item_text(i):
+			return i
+	_expect(false, "選單裡找得到「%s」" % text)
+	return 0
+
+
 ## 連線對戰的換場景流程（接在 _test_full_flow 後面，目前的場景是標題畫面）：
 ## 標題 → 連線畫面（帶著標題的生物）→ 沒填 IP 不能加入 → 返回標題；
 ## 標題 → 連線畫面 → 開主機 → 對戰的「離開」回連線畫面 → 開主機 → 暫停選單回標題
@@ -284,6 +293,20 @@ func _test_battle_flow() -> void:
 	_expect(await _wait_until(func() -> bool: return _current_scene_path() == LOBBY_PATH), "按「連線對戰」換到連線畫面")
 	var lobby: Node = get_tree().current_scene
 	_expect(lobby.get("player_design") != null and (lobby.get("player_design") as CreatureDesign).resource_path == SNAKE_DESIGN, "帶著標題畫面設定的蛇")
+	var option: OptionButton = lobby.get_node("%CreatureOption")
+	var preview: Creature = lobby.get("_preview")
+	_expect(option.item_count >= 8 and "範例：" in option.get_item_text(option.selected) and "snake" in option.get_item_text(option.selected), "選單列出範例生物，選好的是蛇")
+	_expect(preview != null and preview.visible and preview.design == lobby.get("player_design"), "預覽框裡游的是選好的生物")
+	var spider: int = _find_item(option, "（spider）")
+	option.select(spider)
+	option.item_selected.emit(spider)
+	_expect((lobby.get("player_design") as CreatureDesign).creature_name == (load("res://example/creatures/spider/design.tres") as CreatureDesign).creature_name, "換成蜘蛛：要帶進對戰的生物跟著換")
+	_expect(preview.design == lobby.get("player_design") and "複雜度" in (lobby.get_node("%CreatureInfo") as Label).text, "預覽和說明跟著換")
+	var doodle: int = _find_item(option, "（doodle）")
+	option.select(doodle)
+	option.item_selected.emit(doodle)
+	_expect("自己的圖" in (lobby.get_node("%CreatureInfo") as Label).text, "有自己的圖的生物：說明寫圖有多大")
+	_expect(not BattlePacket.read_images(lobby.get("player_design")).is_empty(), "從選單讀的設計檔找得到自己的圖")
 	(lobby.get_node("%AddressEdit") as LineEdit).text = ""
 	(lobby.get_node("%JoinButton") as Button).pressed.emit()
 	_expect("請填主機的 IP" in (lobby.get_node("%MessageLabel") as Label).text and _current_scene_path() == LOBBY_PATH, "沒填 IP：顯示提示，不換場景")
@@ -300,7 +323,7 @@ func _test_battle_flow() -> void:
 	_expect(host_bar.visible and (battle.get("tank") as Tank).player != null, "主機：自己的生物在缸裡，看得到「開始對戰」那一排")
 	(battle.get_node("BattleHud/%LeaveButton") as Button).pressed.emit()
 	_expect(await _wait_until(func() -> bool: return _current_scene_path() == LOBBY_PATH), "按「離開」回到連線畫面")
-	_expect(get_tree().current_scene.get("player_design") != null, "回到連線畫面還帶著生物")
+	_expect(get_tree().current_scene.get("player_design") != null and (get_tree().current_scene.get("player_design") as CreatureDesign).resource_path != SNAKE_DESIGN, "回到連線畫面：還記得上次選的生物（不是標題的蛇）")
 	(get_tree().current_scene.get_node("%HostButton") as Button).pressed.emit()
 	await _wait_until(func() -> bool: return _current_scene_path() == BATTLE_PATH)
 	await get_tree().process_frame
