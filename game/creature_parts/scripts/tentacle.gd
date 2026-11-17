@@ -191,6 +191,8 @@ func _nearest_food(base: Vector2) -> Node2D:
 ## 末端碰到食物就吃掉
 func _try_eat(tip: Vector2) -> void:
 	var creature: Creature = get_creature()
+	if creature != null and creature.puppet:
+		return  # 連線的客戶端：只伸過去，吃不吃得到由主機決定
 	var food: Node2D = _nearest_food(_chains[0][0] if not _chains.is_empty() else tip)
 	if creature != null and food != null and tip.distance_to(food.global_position) < tip_width + 8.0:
 		food.remove_from_group("food")  # 避免同一幀被另一條觸手再吃一次

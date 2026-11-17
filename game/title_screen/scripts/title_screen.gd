@@ -4,7 +4,7 @@ extends Control
 ## 想改文字、字的大小、顏色、字型、背景圖：直接點場景裡的節點，在右邊的檢查器改，程式不會蓋掉。
 ##   ・遊戲名稱：GameName 的 Text
 ##   ・小字：Hook 的 Text
-##   ・按鈕文字：StartButton、SettingsButton、QuitButton 的 Text
+##   ・按鈕文字：StartButton、BattleButton（連線對戰，社課用）、SettingsButton、QuitButton 的 Text
 ##   ・設定面板：SettingsPanel 底下的節點（標題、「音樂」「音效」、返回按鈕）
 ##   ・字的大小、顏色、字型：各節點的 Theme Overrides
 ##   ・背景圖：把圖片拖進 BackgroundImage 的 Texture
@@ -20,11 +20,14 @@ extends Control
 @export var player_design: CreatureDesign
 ## 按「開始遊戲」後要換到的生態缸場景（社長維護，不用改）
 @export_file("*.tscn") var tank_scene: String = "res://game/tank/tank.tscn"
+## 按「連線對戰」後要換到的連線畫面（社課用，網頁版沒有這個按鈕）
+@export_file("*.tscn") var battle_scene: String = "res://lesson/battle/battle_lobby.tscn"
 ## 標題畫面的背景音樂（.mp3、.ogg、.wav），空著就沒有音樂。
 ## 音量跟著設定裡的「音樂」滑桿，播完會從頭再播
 @export var title_music: AudioStream
 
 @onready var _start_button: Button = %StartButton
+@onready var _battle_button: Button = %BattleButton
 @onready var _settings_button: Button = %SettingsButton
 @onready var _quit_button: Button = %QuitButton
 @onready var _message_label: Label = %MessageLabel
@@ -37,8 +40,11 @@ func _ready() -> void:
 	_settings_panel.hide()
 	# Web 版沒辦法用程式關掉瀏覽器分頁，按了不會有反應，所以藏起來
 	_quit_button.visible = not OS.has_feature("web")
+	# 連線對戰只在社課教室、從編輯器按 F5 用：網頁版、匯出的版本沒有連線畫面，藏起來
+	_battle_button.visible = not OS.has_feature("web") and battle_scene != "" and ResourceLoader.exists(battle_scene)
 
 	_start_button.pressed.connect(_on_start_pressed)
+	_battle_button.pressed.connect(_on_battle_pressed)
 	_settings_button.pressed.connect(_settings_panel.show)
 	_back_button.pressed.connect(_settings_panel.hide)
 	_quit_button.pressed.connect(get_tree().quit)
@@ -90,6 +96,17 @@ func _on_start_pressed() -> void:
 	var tank: Node = (load(tank_scene) as PackedScene).instantiate()
 	tank.set("player_design", player_design)
 	get_tree().change_scene_to_node(tank)
+
+
+## 連線對戰：換到連線畫面，把玩家生物的設計檔交給它
+func _on_battle_pressed() -> void:
+	if player_design == null:
+		_message_label.text = _check_setup()
+		_message_label.show()
+		return
+	var lobby: Node = (load(battle_scene) as PackedScene).instantiate()
+	lobby.set("player_design", player_design)
+	get_tree().change_scene_to_node(lobby)
 
 
 ## 回傳空字串代表設定沒問題，否則回傳要顯示給社員看的說明

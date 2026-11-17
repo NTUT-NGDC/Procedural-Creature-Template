@@ -48,6 +48,8 @@ enum Growth { SCALE, LONGER_WITH_LEGS, LONGER }
 
 ## 圖放在哪個資料夾。空的就用設計檔所在的資料夾（連線收到的設計檔沒有檔案，要另外指定）
 var image_folder: String = ""
+## 連線收到的圖：檔名 → Texture2D。不存檔、不傳（不是 @export），load_image() 先找這裡
+var image_cache: Dictionary = {}
 
 
 ## 所有掛載零件的設計，照產生的順序：觸手、腳、掛件、眼睛（眼睛最後畫，才在最上面）
@@ -104,10 +106,14 @@ func image_path(file: String) -> String:
 	return folder.path_join(OrnamentDesign.safe_image_file(file))
 
 
-## 讀一張圖。編輯器已經匯入的用 load()；剛存進來、還沒匯入的直接讀 PNG 檔。讀不到回傳 null
+## 讀一張圖。連線收到的圖在 image_cache；編輯器已經匯入的用 load()；剛存進來、還沒匯入的直接讀 PNG 檔。讀不到回傳 null
 func load_image(file: String) -> Texture2D:
 	if OrnamentDesign.safe_image_file(file) == "":
 		return null
+	if image_cache.has(file):
+		return image_cache[file] as Texture2D
+	if image_folder == "" and resource_path == "":
+		return null  # 不是從檔案讀的設計檔（連線收到的），沒有資料夾可以找
 	var path: String = image_path(file)
 	if ResourceLoader.exists(path):
 		return load(path) as Texture2D

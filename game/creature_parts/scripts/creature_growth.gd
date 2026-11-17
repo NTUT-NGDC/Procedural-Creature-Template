@@ -26,6 +26,7 @@ static func body_size(body: BodyDesign) -> float:
 static func shape_at(design: CreatureDesign, level: int, balance: CreatureBalance) -> CreatureDesign:
 	var shape: CreatureDesign = CreatureDesign.from_data(design.to_dict())  # 複製一份，不改原本的
 	shape.image_folder = design.image_folder if design.image_folder != "" else design.resource_path.get_base_dir()
+	shape.image_cache = design.image_cache  # 連線收到的圖（同一份，不複製）
 	var size: float = body_size(shape.body)
 	var start: float = clampf(size, balance.min_start_size, balance.max_start_size)
 	scale_all(shape, sqrt(start / size))  # 一開始的體型夾在上下限之間

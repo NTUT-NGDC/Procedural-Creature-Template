@@ -13,6 +13,16 @@ extends Node2D
 ## 地圖比畫面大，鏡頭跟著玩家走。編輯器裡看到的那一整片水就是地圖範圍。
 ## 水草、海葵預先擺在 Plants 節點底下，可以在編輯器裡直接拖、加、刪（數量有上限）。
 ## 這個場景的設定由社長維護，社員不用改。
+##
+## 連線對戰（lesson/battle/）：主機照常跑這個生態缸，用下面的 signal 把發生的事告訴大家；
+## 客戶端打開 remote_view，只顯示主機傳來的畫面。
+
+## 放了一個飼料（連線的主機用：告訴大家）
+signal food_added(food: Food)
+## 一個飼料被吃掉了（連線的主機用）
+signal food_eaten(food: Node)
+## victim 的頭撞到 blocker 死掉了（玩家、連線的其他玩家會重生，NPC 會消失）
+signal creature_died(victim: Creature, blocker: Creature)
 
 ## 畫面外多遠以內還是照常畫、照常動（像素），太近的話游進畫面時會看到東西突然出現
 const OFFSCREEN_MARGIN: float = 100.0
@@ -108,6 +118,9 @@ var _food_timer: float = 0.0
 var _respawn_timer: float = 0.0
 ## 沒有被上限藏起來的水草、海葵（畫面外的會暫停）
 var _active_plants: Array[Node2D] = []
+## 連線對戰的客戶端：不放自己的玩家、不長飼料、不判斷誰吃到誰撞到誰（主機說了算），
+## 生物和飼料由連線程式照主機傳來的資料擺。要在加進場景之前設定
+var remote_view: bool = false
 
 
 func _ready() -> void:
@@ -125,6 +138,8 @@ func _ready() -> void:
 	_play_music()
 	_limit_plants()
 	_create_camera()
+	if remote_view:
+		return
 	_spawn_player()
 	for i: int in npc_target_count():
 		spawn_npc()
@@ -139,10 +154,11 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
-	_grow_food(delta)
-	_keep_population(delta)
-	_eat_food()
-	_judge_creatures()
+	if not remote_view:
+		_grow_food(delta)
+		_keep_population(delta)
+		_eat_food()
+		_judge_creatures()
 	_follow_player(delta)
 	_skip_offscreen()
 	_update_hud()
@@ -152,7 +168,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
 	var click: InputEventMouseButton = event as InputEventMouseButton
-	if click_to_feed and click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+	if click_to_feed and not remote_view and click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
 		drop_food(get_global_mouse_position())
 
 
@@ -213,7 +229,7 @@ func spawn_npc() -> Creature:
 	npc.max_level = npc_max_level
 	var base: int = player.level if player != null else 0
 	npc.level = clampi(base + randi_range(-npc_level_spread, npc_level_spread), 0, npc_max_level)
-	npc.position = _safe_spot()
+	npc.position = safe_spot()
 	npc.heading = randf() * TAU
 	npc.brain = func() -> Dictionary: return NpcBrain.choose_target(npc, get_creatures(), _foods.get_children())
 	npc.add_to_group("npc")
@@ -233,6 +249,7 @@ func add_creature(creature: Creature) -> void:
 	creature.bounds = world_rect()
 	creature.balance = get_balance()
 	creature.boost_spent.connect(func(at: Vector2) -> void: drop_food(at, true))
+	creature.ate.connect(food_eaten.emit)
 	_creatures.add_child(creature)
 
 
@@ -279,7 +296,8 @@ func _judge_creatures() -> void:
 		_kill(a, crashed[a])
 
 
-## victim 撞到 blocker 死掉：沿著身體散成一串大顆飼料，玩家重生、其他生物消失
+## victim 撞到 blocker 死掉：沿著身體散成一串大顆飼料。
+## 玩家、連線的其他玩家（"respawn" 群組）重生，其他生物消失
 func _kill(victim: Creature, blocker: Creature) -> void:
 	var balance: CreatureBalance = victim.get_balance()
 	var body: ChainBody = victim.get_body()
@@ -287,28 +305,43 @@ func _kill(victim: Creature, blocker: Creature) -> void:
 	_scatter_food(along, TankRules.dropped_food(victim.level, balance))
 	if blocker == player and victim != player:
 		kills += 1
-		_hud.call("show_message", "撞倒一隻！", 1.5)
-	if victim == player:
-		_respawn_player()
+		show_message("撞倒一隻！", 1.5)
+	if victim == player or victim.is_in_group("respawn"):
+		respawn(victim)
 	else:
 		victim.queue_free()
+	creature_died.emit(victim, blocker)
 
 
 ## 玩家撞死了：回到 0 級，在離大家遠一點的地方重生，無敵一下
 func _respawn_player() -> void:
-	player.set_level(0)
-	player.global_position = _safe_spot(player)
-	player.knockback = Vector2.ZERO
-	player.reset_pose()
-	player.invincible_time = player.get_balance().respawn_invincible
+	respawn(player)
+
+
+## 撞死的生物回到 0 級，在離大家遠一點的地方重生，無敵一下。
+## 是自己的玩家的話，鏡頭跟過去、顯示提示（message 空的就不顯示）
+func respawn(creature: Creature, message: String = "撞到別人了！從 0 級重新開始") -> void:
+	creature.set_level(0)
+	creature.global_position = safe_spot(creature)
+	creature.knockback = Vector2.ZERO
+	creature.reset_pose()
+	creature.invincible_time = creature.get_balance().respawn_invincible
+	if creature != player:
+		return
 	camera.global_position = player.global_position
 	camera.reset_smoothing()
-	_hud.call("show_message", "撞到別人了！從 0 級重新開始", 2.5)
+	if message != "":
+		show_message(message, 2.5)
+
+
+## 在畫面中間顯示一段提示，seconds 秒後消失（0 是一直顯示）
+func show_message(text: String, seconds: float = 0.0) -> void:
+	_hud.call("show_message", text, seconds)
 
 
 ## 復活、生出新生物的位置：隨便挑 SPAWN_TRIES 個地方，選「空間」最大的（見 TankRules.spawn_room）。
 ## ignore 是不用避開的（例如復活的玩家自己）
-func _safe_spot(ignore: Creature = null) -> Vector2:
+func safe_spot(ignore: Creature = null) -> Vector2:
 	var others: Array[Creature] = get_creatures()
 	others.erase(ignore)
 	var best: Vector2 = world_size / 2.0
@@ -367,17 +400,25 @@ func view_rect() -> Rect2:
 func drop_food(at: Vector2, force: bool = false, big: bool = false) -> bool:
 	if _foods.get_child_count() >= get_balance().max_food and not force:
 		return false
+	var food: Food = add_food(at, get_balance().big_food_value if big else 1, DROPPED_FOOD_WAIT if force else 0.0)
+	food_added.emit(food)
+	return true
+
+
+## 直接放一個飼料（不檢查數量）：value 是算幾個（大於 1 就是大顆），wait 秒之後才能吃。
+## 連線的客戶端照主機說的放
+func add_food(at: Vector2, value: int = 1, wait: float = 0.0) -> Food:
 	var food := Food.new()
 	food.color = food_color
-	if big:
-		food.value = get_balance().big_food_value
+	food.value = value
+	if value > 1:
 		food.radius = Food.BIG_RADIUS
 	food.floor_y = floor_y()
 	food.max_x = world_size.x
-	food.wait = DROPPED_FOOD_WAIT if force else 0.0
+	food.wait = wait
 	food.position = at
 	_foods.add_child(food)
-	return true
+	return food
 
 
 ## 沿著 along 這串點平均掉 count 個大顆飼料（生物撞死時），每個稍微散開一點

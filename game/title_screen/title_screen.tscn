@@ -80,6 +80,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 33
 text = "開始遊戲"
 
+[node name="BattleButton" type="Button" parent="Margin/VBox/Buttons" unique_id=1880412357]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 33
+text = "連線對戰"
+
 [node name="SettingsButton" type="Button" parent="Margin/VBox/Buttons" unique_id=17960522]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(330, 0)

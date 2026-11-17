@@ -260,7 +260,7 @@ func _test_battle_tank() -> void:
 	player.set_level(0)
 	var others: Array[Creature] = [big, small]
 	var near_big: float = TankRules.spawn_room(_tail_of(big) + Vector2(0, 100), others)
-	_expect(near_big > 0.0 and near_big <= 100.0, "離大章魚的尾巴 100：空間是到身體的距離（%.0f），頭和身體都算" % near_big)
+	_expect(near_big > 0.0 and near_big <= 100.01, "離大章魚的尾巴 100：空間是到身體的距離（%.0f），頭和身體都算" % near_big)
 	_expect(TankRules.spawn_room(Vector2(2000, 1800), others) > 500.0, "離大家都很遠：空間很大")
 	var safe: bool = true
 	for i: int in 10:

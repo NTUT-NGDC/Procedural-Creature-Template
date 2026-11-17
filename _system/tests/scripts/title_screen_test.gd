@@ -6,6 +6,7 @@ extends Node
 ## 4. 暫停選單：打開時遊戲暫停、選單照常運作；繼續後解除暫停；按 Esc 也能打開；回到標題時已解除暫停
 ## 5. 背景：玩家生物用「漫遊」在按鈕後面游；沒設定玩家生物時不顯示、不會當掉
 ## 6. 完整流程跑兩輪：標題 → 開始 → 生態缸（玩家生物就是標題設定的那隻）→ 吃東西升級 → 暫停選單回標題
+## 7. 連線對戰：標題 → 連線畫面 → 開主機 → 離開 → 回標題（連線本身在 battle_test 測）
 ##
 ##
 ## 測試會暫時改掉 user://sound_settings.cfg，結束時還原。
@@ -17,6 +18,8 @@ const TITLE_SCENE: PackedScene = preload("res://game/title_screen/title_screen.t
 const PAUSE_MENU_SCENE: PackedScene = preload("res://game/pause_menu/pause_menu.tscn")
 const TITLE_PATH: String = "res://game/title_screen/title_screen.tscn"
 const TANK_PATH: String = "res://game/tank/tank.tscn"
+const LOBBY_PATH: String = "res://lesson/battle/battle_lobby.tscn"
+const BATTLE_PATH: String = "res://lesson/battle/online_battle.tscn"
 const SNAKE_DESIGN: String = "res://example/creatures/snake/design.tres"
 const TIMEOUT_SECONDS: float = 10.0
 
@@ -33,6 +36,7 @@ func _ready() -> void:
 	await _test_pause_menu()
 	await _test_background_creature()
 	await _test_full_flow()
+	await _test_battle_flow()
 
 	if _failures == 0:
 		print("[標題畫面測試] 全部 PASS")
@@ -266,3 +270,43 @@ func _test_full_flow() -> void:
 		(tank.get_node("PauseMenu/%TitleButton") as Button).pressed.emit()
 		_expect(await _wait_until(func() -> bool: return _current_scene_path() == TITLE_PATH), "第 %d 輪：從暫停選單回到標題畫面" % round_number)
 		_expect(not get_tree().paused and WaterFlow.strength == 0.0, "第 %d 輪：回到標題時已解除暫停、水流歸零" % round_number)
+
+
+## 連線對戰的換場景流程（接在 _test_full_flow 後面，目前的場景是標題畫面）：
+## 標題 → 連線畫面（帶著標題的生物）→ 沒填 IP 不能加入 → 返回標題；
+## 標題 → 連線畫面 → 開主機 → 對戰的「離開」回連線畫面 → 開主機 → 暫停選單回標題
+func _test_battle_flow() -> void:
+	print("--- 連線對戰：換場景 ---")
+	var title: Node = get_tree().current_scene
+	var battle_button: Button = title.get_node("%BattleButton")
+	_expect(battle_button.visible, "電腦版看得到「連線對戰」")
+	battle_button.pressed.emit()
+	_expect(await _wait_until(func() -> bool: return _current_scene_path() == LOBBY_PATH), "按「連線對戰」換到連線畫面")
+	var lobby: Node = get_tree().current_scene
+	_expect(lobby.get("player_design") != null and (lobby.get("player_design") as CreatureDesign).resource_path == SNAKE_DESIGN, "帶著標題畫面設定的蛇")
+	(lobby.get_node("%AddressEdit") as LineEdit).text = ""
+	(lobby.get_node("%JoinButton") as Button).pressed.emit()
+	_expect("請填主機的 IP" in (lobby.get_node("%MessageLabel") as Label).text and _current_scene_path() == LOBBY_PATH, "沒填 IP：顯示提示，不換場景")
+	(lobby.get_node("%BackButton") as Button).pressed.emit()
+	_expect(await _wait_until(func() -> bool: return _current_scene_path() == TITLE_PATH), "按「返回」回到標題")
+
+	(get_tree().current_scene.get_node("%BattleButton") as Button).pressed.emit()
+	await _wait_until(func() -> bool: return _current_scene_path() == LOBBY_PATH)
+	(get_tree().current_scene.get_node("%HostButton") as Button).pressed.emit()
+	_expect(await _wait_until(func() -> bool: return _current_scene_path() == BATTLE_PATH), "按「開主機」換到對戰")
+	await get_tree().process_frame
+	var battle: Node = get_tree().current_scene
+	var host_bar: Control = battle.get_node("BattleHud/%HostBar")
+	_expect(host_bar.visible and (battle.get("tank") as Tank).player != null, "主機：自己的生物在缸裡，看得到「開始對戰」那一排")
+	(battle.get_node("BattleHud/%LeaveButton") as Button).pressed.emit()
+	_expect(await _wait_until(func() -> bool: return _current_scene_path() == LOBBY_PATH), "按「離開」回到連線畫面")
+	_expect(get_tree().current_scene.get("player_design") != null, "回到連線畫面還帶著生物")
+	(get_tree().current_scene.get_node("%HostButton") as Button).pressed.emit()
+	await _wait_until(func() -> bool: return _current_scene_path() == BATTLE_PATH)
+	await get_tree().process_frame
+	battle = get_tree().current_scene
+	var tank: Tank = battle.get("tank")
+	(tank.get_node("PauseMenu/%MenuButton") as Button).pressed.emit()
+	(tank.get_node("PauseMenu/%TitleButton") as Button).pressed.emit()
+	_expect(await _wait_until(func() -> bool: return _current_scene_path() == TITLE_PATH), "對戰中從暫停選單回到標題")
+	_expect(not get_tree().paused and WaterFlow.strength == 0.0, "回到標題時已解除暫停、水流歸零")

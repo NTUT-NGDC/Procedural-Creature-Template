@@ -8,6 +8,7 @@ extends Node
 ## 6. 存檔：資料夾名稱不合格不存；合格就存到 my_creature/<資料夾>/design.tres，讀回來一樣；蓋掉別的資料夾要先確認
 ## 7. 讀範例（塗鴉蛇）再存檔：用到的圖一起複製過去
 ## 8. 匯入圖片：太大的縮到 512，放進生物的資料夾，掛件顯示這張圖；身體的每一節也可以放圖、存讀檔還在、奇怪的檔名擋掉
+##    圖加起來超過連線的上限：存檔時多一句「連線對戰時會問你要不要縮小」
 ## 9. 顏色、粗細形狀的編輯器：簡單模式、加顏色、選內建形狀
 ## 10. 複雜度上限：顯示「複雜度 x / 上限」；超過上限的滑桿、新增被擋下來，按鈕變灰；本來就超過的只能往下減
 ## 11. 字的大小：換成中字、大字，字、右邊分頁、名稱欄跟著變；存進設定檔，重開工坊還記得；設定檔亂掉用小字；大字時很長的提示會換行
@@ -45,6 +46,7 @@ func _ready() -> void:
 	await _test_save()
 	await _test_copy_images()
 	await _test_import_image()
+	_test_image_size_hint()
 	_test_color_and_curve()
 	await _test_complexity()
 	await _test_font_size()
@@ -218,6 +220,27 @@ func _test_import_image() -> void:
 	_workshop.call("_on_design_changed")
 	_expect(_creature().get_body().segment_texture == null, "拿掉圖：身體也不畫圖了")
 	DirAccess.remove_absolute(bead)
+
+
+func _test_image_size_hint() -> void:
+	print("--- 圖比較大的提醒 ---")
+	var label: Label = _workshop.get("_message") as Label
+	_workshop.call("_on_save_pressed")
+	_expect(not "連線對戰" in label.text, "圖不大：存檔時不提醒")
+	var folder: String = "res://my_creature/%s/" % TEST_FOLDERS[1]
+	var noise := Image.create(512, 512, false, Image.FORMAT_RGBA8)
+	for y: int in 512:
+		for x: int in 512:
+			noise.set_pixel(x, y, Color(randf(), randf(), randf(), 1.0))  # 雜訊 PNG 壓不小，一張快 1 MB
+	noise.save_png(folder + "zz_noise_a.png")
+	noise.save_png(folder + "zz_noise_b.png")
+	_design().ornaments[-1].image_file = "zz_noise_a.png"
+	_design().body.tail_image = "zz_noise_b.png"
+	_workshop.call("_on_save_pressed")
+	_expect("連線對戰時會問你要不要縮小" in label.text and "原圖不會被改到" in label.text, "圖加起來超過 1 MB：存檔時提醒")
+	_design().ornaments[-1].image_file = "workshop_test_big.png"
+	_design().body.tail_image = ""
+	_workshop.call("_on_design_changed")
 
 
 func _test_color_and_curve() -> void:

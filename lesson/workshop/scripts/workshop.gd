@@ -187,6 +187,14 @@ func _on_save_pressed() -> void:
 	save_to(folder)
 
 
+## 圖加起來超過連線的上限時，存檔後多一句提醒（先知道，連線那天才不會被嚇到）。沒超過是空字串
+func image_size_hint() -> String:
+	var total: int = BattlePacket.total_bytes(BattlePacket.read_images(design))
+	if total <= BattlePacket.MAX_IMAGE_BYTES:
+		return ""
+	return "\n這隻的圖加起來 %.1f MB，比較大：連線對戰時會問你要不要縮小（原圖不會被改到）" % (total / 1048576.0)
+
+
 ## 存到 my_creature/<folder>/design.tres，用到的圖也複製過去
 func save_to(folder: String) -> Error:
 	var path: String = MY_FOLDER + folder + "/design.tres"
@@ -199,7 +207,7 @@ func save_to(folder: String) -> Error:
 		return error
 	_loaded_folder = folder
 	_refresh_load_list()
-	_show_message("存好了：my_creature/%s/design.tres" % folder)
+	_show_message("存好了：my_creature/%s/design.tres%s" % [folder, image_size_hint()])
 	design_saved.emit(design)
 	return OK
 

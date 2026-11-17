@@ -93,6 +93,11 @@ var knockback: Vector2 = Vector2.ZERO
 var tank_controls: bool = false
 ## 這一幀有沒有在加速
 var boosting: bool = false
+## 連線對戰的客戶端：生物不自己移動，頭的位置由連線程式每一幀設定（身體、腳、觸手照常跟著動）。
+## 不吃東西、不加速（都由主機決定）
+var puppet: bool = false
+## 遠端操控時，玩家想往哪走、要不要加速（_get_move_target() 的結果）。連線程式把這個傳給主機
+var wanted: Dictionary = {}
 ## 現在按住的鍵（加速用：按住任何鍵都算）
 var _held_keys: Dictionary = {}
 ## 加速累積消耗了多少飼料（滿 1 個就真的扣掉一個）
@@ -130,6 +135,11 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
+		return
+	if puppet:  # 遠端操控：只記下玩家的操作，不自己動
+		if control_mode != Mode.WANDER:
+			wanted = _get_move_target()
+		_update_invincible(delta)
 		return
 	_brain_wait -= delta
 	var target: Dictionary = _get_move_target()
@@ -314,6 +324,8 @@ func grow(amount: int = 1) -> void:
 ## 有設計檔的生物：吃滿「升一級要吃幾個」才長大一級（大顆飼料算好幾個，多的留到下一級）；
 ## 沒有設計檔的：吃一個就長大 1
 func eat(food: Node) -> void:
+	if puppet:
+		return  # 連線的客戶端：吃不吃得到由主機決定
 	if food.has_method("on_eaten"):
 		food.call("on_eaten", self)
 	ate.emit(food)

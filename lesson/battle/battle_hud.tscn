@@ -1,0 +1,139 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://lesson/battle/scripts/battle_hud.gd" id="1_hud"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_notice"]
+bg_color = Color(0.13, 0.13, 0.17, 0.97)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="BattleHud" type="CanvasLayer"]
+layer = 11
+script = ExtResource("1_hud")
+
+[node name="TimeLabel" type="Label" parent="."]
+unique_name_in_owner = true
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 22.0
+offset_right = 300.0
+offset_bottom = 60.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 33
+text = "熱身中"
+horizontal_alignment = 1
+
+[node name="RankLabel" type="Label" parent="."]
+unique_name_in_owner = true
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -352.0
+offset_top = 88.0
+offset_right = -22.0
+offset_bottom = 300.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 22
+text = "排行榜"
+
+[node name="HostBar" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -560.0
+offset_top = -66.0
+offset_right = 560.0
+offset_bottom = -22.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="IpLabel" type="Label" parent="HostBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 22
+text = "主機 IP："
+
+[node name="MinutesLabel" type="Label" parent="HostBar"]
+layout_mode = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 22
+text = "一場幾分鐘"
+
+[node name="MinutesSpin" type="SpinBox" parent="HostBar"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 1.0
+max_value = 30.0
+value = 5.0
+
+[node name="StartButton" type="Button" parent="HostBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "開始對戰"
+
+[node name="NoticePanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -250.0
+offset_right = 280.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_notice")
+
+[node name="Margin" type="MarginContainer" parent="NoticePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 33
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 33
+theme_override_constants/margin_bottom = 22
+
+[node name="VBox" type="VBoxContainer" parent="NoticePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="NoticeTitle" type="Label" parent="NoticePanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 33
+text = "最終排名"
+horizontal_alignment = 1
+
+[node name="NoticeText" type="Label" parent="NoticePanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 22
+text = "1. 玩家"
+autowrap_mode = 3
+
+[node name="LeaveButton" type="Button" parent="NoticePanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
+text = "離開"
