@@ -279,7 +279,7 @@ func get_balance() -> CreatureBalance:
 func add_creature(creature: Creature) -> void:
 	creature.bounds = world_rect()
 	creature.balance = get_balance()
-	creature.boost_spent.connect(func(at: Vector2) -> void: drop_food(at, true))
+	creature.boost_spent.connect(func(at: Vector2) -> void: drop_food(at, true, false, creature.design))  # 加速掉的：照這隻的「噴出的飼料」畫
 	creature.ate.connect(food_eaten.emit)
 	_creatures.add_child(creature)
 
@@ -333,7 +333,7 @@ func _kill(victim: Creature, blocker: Creature) -> void:
 	var balance: CreatureBalance = victim.get_balance()
 	var body: ChainBody = victim.get_body()
 	var along: PackedVector2Array = body.get_joints() if body != null else PackedVector2Array([victim.global_position])
-	_scatter_food(along, TankRules.dropped_food(victim.level, balance))
+	_scatter_food(along, TankRules.dropped_food(victim.level, balance), victim.design)
 	if blocker == player and victim != player:
 		kills += 1
 		show_message("撞倒一隻！", 1.5)
@@ -428,10 +428,12 @@ func view_rect() -> Rect2:
 
 
 ## 放一個飼料（場上太多就不放；force 是生物掉出來的，一定放；big 是大顆）。回傳放了沒
-func drop_food(at: Vector2, force: bool = false, big: bool = false) -> bool:
+## look：用哪一份設計檔的「噴出的飼料」外觀（空的是生態缸的黃色飼料）
+func drop_food(at: Vector2, force: bool = false, big: bool = false, look: CreatureDesign = null) -> bool:
 	if _foods.get_child_count() >= get_balance().max_food and not force:
 		return false
 	var food: Food = add_food(at, get_balance().big_food_value if big else 1, DROPPED_FOOD_WAIT if force else 0.0)
+	food.look = look
 	food_added.emit(food)
 	return true
 
@@ -453,10 +455,11 @@ func add_food(at: Vector2, value: int = 1, wait: float = 0.0) -> Food:
 
 
 ## 沿著 along 這串點平均掉 count 個大顆飼料（生物撞死時），每個稍微散開一點
-func _scatter_food(along: PackedVector2Array, count: int) -> void:
+## look 是掉出來的飼料照哪一份設計檔的「噴出的飼料」畫
+func _scatter_food(along: PackedVector2Array, count: int, look: CreatureDesign = null) -> void:
 	for i: int in count:
 		var at: Vector2 = along[floori(float(i) / count * along.size())]
-		drop_food((at + Vector2.from_angle(randf() * TAU) * randf_range(4.0, 20.0)).clamp(Vector2.ZERO, Vector2(world_size.x, floor_y())), true, true)
+		drop_food((at + Vector2.from_angle(randf() * TAU) * randf_range(4.0, 20.0)).clamp(Vector2.ZERO, Vector2(world_size.x, floor_y())), true, true, look)
 
 
 ## 缸裡自己長食物：每隔一段時間，在地圖上隨機的地方冒出一個（有 big_food_chance 的機率是大顆）

@@ -272,8 +272,9 @@ func _host_process(delta: float) -> void:
 	_food_sync_timer -= delta
 	if _food_sync_timer <= 0.0:
 		_food_sync_timer = FOOD_SYNC_INTERVAL
+		var foods: Array = _all_foods()
 		for id: int in _joined_peers():
-			_food_snapshot.rpc_id(id, _food_ids(), _food_positions(), _food_values())
+			_food_snapshot.rpc_id(id, foods[0], foods[1], foods[2], foods[3])
 
 
 ## 有人離開：把他的生物拿掉，告訴其他人
@@ -320,7 +321,8 @@ func _request_join(packet: Variant) -> void:
 			_queue(id, ["_player_joined", _entry(other)])
 			if other.id != 1:
 				_queue(other.id, ["_player_joined", _entry(player)])
-	_food_snapshot.rpc_id(id, _food_ids(), _food_positions(), _food_values())
+	var foods: Array = _all_foods()
+	_food_snapshot.rpc_id(id, foods[0], foods[1], foods[2], foods[3])
 
 
 ## 主機上代表學員的生物：照學員傳來的方向游（用 Creature 的「大腦」），撞死會重生
@@ -403,28 +405,54 @@ func _broadcast_state() -> void:
 	var foods_added: Array = _food_changes()
 	for id: int in _joined_peers():
 		if not foods_added.is_empty():
-			_foods_changed.rpc_id(id, foods_added[0], foods_added[1], foods_added[2], foods_added[3], foods_added[4])
+			_foods_changed.rpc_id(id, foods_added[0], foods_added[1], foods_added[2], foods_added[3], foods_added[4], foods_added[5])
 		_state.rpc_id(id, [ids, positions, velocities, headings, levels, progress, spawns, reached, WaterFlow.now(), time_left])
 
 
-## 這一輪新增、吃掉的飼料（沒有就是空的）：[新增的編號, 位置, 算幾個, 還要等幾秒, 吃掉的編號]
+## 這一輪新增、吃掉的飼料（沒有就是空的）：[新增的編號, 位置, 算幾個, 誰掉的, 還要等幾秒, 吃掉的編號]
 func _food_changes() -> Array:
 	if _added_foods.is_empty() and _removed_foods.is_empty():
 		return []
-	var ids := PackedInt32Array()
-	var positions := PackedVector2Array()
-	var values := PackedInt32Array()
+	var result: Array = _food_columns(_added_foods.filter(func(food: Food) -> bool: return is_instance_valid(food) and food.has_meta("net_id")))
 	var waits := PackedFloat32Array()
 	for food: Food in _added_foods:
 		if is_instance_valid(food) and food.has_meta("net_id"):
-			ids.append(food.get_meta("net_id"))
-			positions.append(food.global_position)
-			values.append(food.value)
 			waits.append(food.wait)
-	var result: Array = [ids, positions, values, waits, _removed_foods]
+	result.append_array([waits, _removed_foods])
 	_added_foods.clear()
 	_removed_foods = PackedInt32Array()
 	return result
+
+
+## 所有還在的飼料（每秒對一次用）：[編號, 位置, 算幾個, 誰掉的]
+func _all_foods() -> Array:
+	return _food_columns(_foods.values().filter(func(food: Variant) -> bool: return is_instance_valid(food)))
+
+
+## 一串飼料 → 一欄一欄的資料：[編號, 位置, 算幾個, 誰掉的]（Packed 陣列比較省流量）。
+## 「誰掉的」是那隻生物的連線編號（0 是一般的飼料）：大家都有每隻生物的設計檔，照它的「噴出的飼料」畫，外觀不用另外傳
+func _food_columns(foods: Array) -> Array:
+	var ids := PackedInt32Array()
+	var positions := PackedVector2Array()
+	var values := PackedInt32Array()
+	var owners := PackedInt32Array()
+	for food: Food in foods:
+		ids.append(food.get_meta("net_id"))
+		positions.append(food.global_position)
+		values.append(food.value)
+		owners.append(_owner_of(food.look))
+	return [ids, positions, values, owners]
+
+
+## 設計檔 → 用這份設計檔的玩家的連線編號（找不到是 0）
+func _owner_of(design: CreatureDesign) -> int:
+	if design == null:
+		return 0
+	for id: int in players:
+		var player: Player = players[id]
+		if is_instance_valid(player.creature) and player.creature.design == design:
+			return id
+	return 0
 
 
 func _on_food_added(food: Food) -> void:
@@ -438,30 +466,6 @@ func _on_food_eaten(food: Node) -> void:
 	var id: int = food.get_meta("net_id", -1)
 	if _foods.erase(id):
 		_removed_foods.append(id)
-
-
-func _food_ids() -> PackedInt32Array:
-	var result := PackedInt32Array()
-	for id: int in _foods:
-		if is_instance_valid(_foods[id]):
-			result.append(id)
-	return result
-
-
-func _food_positions() -> PackedVector2Array:
-	var result := PackedVector2Array()
-	for id: int in _foods:
-		if is_instance_valid(_foods[id]):
-			result.append((_foods[id] as Food).global_position)
-	return result
-
-
-func _food_values() -> PackedInt32Array:
-	var result := PackedInt32Array()
-	for id: int in _foods:
-		if is_instance_valid(_foods[id]):
-			result.append((_foods[id] as Food).value)
-	return result
 
 
 ## 主機的裁判判定有生物撞死了：記下誰撞倒誰、重生次數，告訴大家
@@ -640,28 +644,37 @@ func _sync_flow(host_time: float) -> void:
 
 
 @rpc("authority", "reliable")
-func _foods_changed(ids: PackedInt32Array, positions: PackedVector2Array, values: PackedInt32Array, waits: PackedFloat32Array, removed: PackedInt32Array) -> void:
+func _foods_changed(ids: PackedInt32Array, positions: PackedVector2Array, values: PackedInt32Array, owners: PackedInt32Array, waits: PackedFloat32Array, removed: PackedInt32Array) -> void:
 	for i: int in ids.size():
 		if not _foods.has(ids[i]):
-			_foods[ids[i]] = tank.add_food(positions[i], values[i], waits[i])
+			_foods[ids[i]] = _add_client_food(positions[i], values[i], owners[i], waits[i])
 	for id: int in removed:
 		_remove_client_food(id)
 
 
 ## 每 FOOD_SYNC_INTERVAL 秒：所有飼料對一次（少的補上、多的拿掉、位置拉回主機的位置）
 @rpc("authority", "reliable")
-func _food_snapshot(ids: PackedInt32Array, positions: PackedVector2Array, values: PackedInt32Array) -> void:
+func _food_snapshot(ids: PackedInt32Array, positions: PackedVector2Array, values: PackedInt32Array, owners: PackedInt32Array) -> void:
 	var alive: Dictionary = {}
 	for i: int in ids.size():
 		alive[ids[i]] = true
 		var food: Food = _foods.get(ids[i])
 		if food == null or not is_instance_valid(food):
-			_foods[ids[i]] = tank.add_food(positions[i], values[i])
+			_foods[ids[i]] = _add_client_food(positions[i], values[i], owners[i])
 		else:
 			food.global_position = positions[i]
 	for id: int in _foods.keys():
 		if not alive.has(id):
 			_remove_client_food(id)
+
+
+## 照主機說的放一個飼料。dropper 是誰掉的：照那隻生物的「噴出的飼料」畫（找不到就是一般的飼料）
+func _add_client_food(at: Vector2, value: int, dropper: int, wait: float = 0.0) -> Food:
+	var food: Food = tank.add_food(at, value, wait)
+	var player: Player = players.get(dropper)
+	if player != null and is_instance_valid(player.creature):
+		food.look = player.creature.design
+	return food
 
 
 func _remove_client_food(id: int) -> void:

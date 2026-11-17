@@ -48,6 +48,7 @@ func _ready() -> void:
 	await _test_import_image()
 	_test_image_size_hint()
 	_test_color_and_curve()
+	await _test_feed_tab()
 	await _test_complexity()
 	await _test_font_size()
 
@@ -67,7 +68,7 @@ func _ready() -> void:
 func _test_open(debug: Node) -> void:
 	print("--- 打開工坊 ---")
 	var tabs: TabContainer = _workshop.get("_tabs")
-	_expect(tabs.get_tab_count() == 6, "6 個分頁（%d）" % tabs.get_tab_count())
+	_expect(tabs.get_tab_count() == 7, "7 個分頁（%d）" % tabs.get_tab_count())
 	_expect(_creature().get_body() != null, "生物長出來了")
 	_expect("★" in (_workshop.get("_stats_label") as Label).text, "能力有星星")
 	_expect(debug.get("show_bones") == true, "骨架一直開著")
@@ -387,6 +388,50 @@ func _creature() -> Creature:
 
 
 ## 零件編輯區裡某個名稱那一列的滑桿
+## 「飼料」分頁：只有飼料的三個欄位（「長大」分頁沒有），改了設計檔跟著改
+func _test_feed_tab() -> void:
+	print("--- 飼料分頁 ---")
+	var tabs: TabContainer = _workshop.get("_tabs")
+	_expect(tabs.get_tab_title(tabs.get_tab_count() - 1) == "飼料", "最後一個分頁是「飼料」")
+	var feed: Node = _workshop.get("_feed_editor")
+	var growth: Node = _workshop.get("_growth_editor")
+	var missing: PackedStringArray = []
+	for label: String in ["飼料顏色", "飼料形狀", "飼料大小", "飼料角度", "星星角數", "星星胖瘦", "外框", "外框顏色", "外框寬度", "光暈", "光暈顏色", "光暈大小", "光暈呼吸", "亮點", "亮點顏色"]:
+		if _row_of(feed, label) == null:
+			missing.append(label)
+	_expect(missing.is_empty(), "飼料分頁每個欄位都有中文名稱和控制項（缺 %s）" % ", ".join(missing))
+	_expect(_row_of(feed, "長大方式") == null and _row_of(growth, "飼料形狀") == null and _row_of(growth, "長大方式") != null, "飼料、長大各管各的欄位")
+	var design: CreatureDesign = _workshop.get("design")
+	var option: OptionButton = _row_of(feed, "飼料形狀").find_children("*", "OptionButton", true, false)[0]
+	option.select(Food.Shape.HEART)
+	option.item_selected.emit(Food.Shape.HEART)
+	var check: CheckBox = _row_of(feed, "光暈").find_children("*", "CheckBox", true, false)[0]
+	check.button_pressed = false
+	await _frames(1)
+	_expect(design.spray_shape == Food.Shape.HEART and not design.spray_glow, "選愛心、關掉光暈：設計檔跟著改")
+	var spray_button: Button = null
+	for button: Node in feed.get_parent().find_children("*", "Button", false, false):
+		if (button as Button).text == "噴一下看看":
+			spray_button = button
+	_expect(spray_button != null, "有「噴一下看看」按鈕")
+	var stage: SubViewport = _workshop.get("_stage")
+	spray_button.pressed.emit()
+	await get_tree().create_timer(1.0).timeout
+	var sprayed: Array[Node] = stage.find_children("*", "Food", false, false)
+	_expect(sprayed.size() == _workshop.SPRAY_BURST, "按一下：從尾巴噴出 %d 顆（%d）" % [_workshop.SPRAY_BURST, sprayed.size()])
+	_expect(sprayed.all(func(food: Node) -> bool: return (food as Food).look == design and not (food as Food).edible and not food.is_in_group("food")), "噴出來的照設計檔畫，只給人看、不能吃")
+	await get_tree().create_timer(_workshop.SPRAY_LIFE).timeout
+	_expect(stage.find_children("*", "Food", false, false).is_empty(), "過幾秒就消失")
+
+
+## 編輯區裡名稱是 label_text 的那一排（找不到是 null）
+func _row_of(editor: Node, label_text: String) -> Node:
+	for row: Node in editor.get_children():
+		if row is HBoxContainer and row.get_child_count() >= 2 and row.get_child(0) is Label and (row.get_child(0) as Label).text == label_text:
+			return row
+	return null
+
+
 func _slider_of(editor: Node, label_text: String) -> HSlider:
 	for row: Node in editor.get_children():
 		if row is HBoxContainer and row.get_child_count() >= 2 and row.get_child(0) is Label and (row.get_child(0) as Label).text == label_text:

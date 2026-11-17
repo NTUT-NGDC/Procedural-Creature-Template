@@ -34,6 +34,7 @@ func _ready() -> void:
 	await _test_no_player()
 	await _test_battle_tank()
 	await _test_joystick()
+	await _test_spray_look()
 
 	if _failures == 0:
 		print("[生態缸測試] 全部 PASS")
@@ -337,6 +338,37 @@ func _test_joystick() -> void:
 	get_tree().paused = false
 	await _frames(2)
 	_expect(not player.touch_boost and not joystick.is_boosting(), "暫停時放開的手指收不到：回來時加速會放開")
+	await _free(tank)
+
+
+## 加速掉的飼料用生物設計檔的「噴出的飼料」外觀；撞死散出來的、缸裡長的維持黃色圓的
+func _test_spray_look() -> void:
+	print("--- 噴出的飼料 ---")
+	var tank: Tank = await _spawn({"food_interval": 0.0})
+	var foods: Node2D = tank.get_node("%Foods")
+	var look: CreatureDesign = tank.player.design.duplicate(true)  # 自己一份，不改到快取裡的蛇
+	look.spray_shape = Food.Shape.HEART
+	tank.player.design = look
+	tank.player.boost_spent.emit(Vector2(500, 300))
+	var sprayed: Food = foods.get_child(foods.get_child_count() - 1)
+	_expect(sprayed.look == look and sprayed.value == 1, "加速掉的飼料：照這隻的設計檔畫（還是算 1 個）")
+	var before: int = foods.get_child_count()
+	tank.player.grow(3)
+	tank.call("_kill", tank.player, null)
+	var scattered: Food = foods.get_child(foods.get_child_count() - 1)
+	_expect(foods.get_child_count() > before and scattered.look == look and scattered.value > 1, "撞死散出來的大顆：也照這隻的設計檔畫")
+	tank.drop_food(Vector2(600, 300))
+	var plain: Food = foods.get_child(foods.get_child_count() - 1)
+	_expect(plain.look == null and plain.color == tank.food_color, "點一下放的、缸裡長的：一般的飼料")
+	for shape: int in 6:  # 每種形狀、外框、光暈都畫得出來，不會出錯
+		look.spray_shape = shape
+		look.spray_outline = shape % 2 == 0
+		look.spray_glow = shape % 3 != 0
+		look.spray_angle = shape * 0.5
+		sprayed.queue_redraw()
+		await get_tree().process_frame
+	_expect(true, "六種形狀加上外框、光暈、角度都畫過一次（沒有錯誤訊息）")
+	await _frames(2)
 	await _free(tank)
 
 

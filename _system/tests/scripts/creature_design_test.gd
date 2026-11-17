@@ -30,6 +30,7 @@ func _ready() -> void:
 	_test_fields_match()
 	await _test_examples_match()
 	_test_round_trip()
+	_test_spray()
 	await _test_garbage()
 	await _test_apply_in_place()
 	_test_not_saved()
@@ -95,6 +96,40 @@ func _test_round_trip() -> void:
 		_expect(reloaded.to_dict() == data, "%s：存檔再讀回來不變" % example)
 		_expect(CreatureDesign.from_data(data).to_dict() == data, "%s：to_dict → from_dict 不變" % example)
 		_expect(CreatureDesign.from_data(bytes_to_var(var_to_bytes(data))).to_dict() == data, "%s：轉成位元組（連線傳的格式）再讀回來不變" % example)
+
+
+## 噴出的飼料：舊的設計檔沒有這幾欄就用預設值；奇怪的值夾回範圍；連線格式來回不變
+func _test_spray() -> void:
+	print("--- 噴出的飼料 ---")
+	var snake: CreatureDesign = load(EXAMPLES + "snake/design.tres")
+	var spray: PackedStringArray = snake.spray_fields()
+	_expect(spray.size() == 15 and "spray_glow_color" in spray and "spray_star_points" in spray, "spray_ 開頭的欄位都算「噴出的飼料」（%d 個）" % spray.size())
+	var data: Dictionary = snake.to_dict()
+	for field: String in spray:
+		data.erase(field)
+	var old: CreatureDesign = CreatureDesign.from_data(data)
+	_expect(old.spray_color == Color("#ffd84d") and old.spray_shape == 0 and old.spray_glow and not old.spray_outline and old.spray_size == 1.0 and old.spray_shine, "舊的設計檔（沒有這幾欄）：黃色、圓、有光暈和亮點、沒有外框、原本大小")
+	data["spray_color"] = [2.0, -1.0, 0.5]
+	data["spray_shape"] = 99
+	data["spray_glow"] = "yes"
+	data["spray_size"] = 100.0
+	data["spray_star_points"] = 1
+	data["spray_outline_width"] = -3.0
+	var odd: CreatureDesign = CreatureDesign.from_data(data)
+	_expect(odd.spray_color == Color(1, 0, 0.5) and odd.spray_shape == 5 and odd.spray_glow, "奇怪的值：顏色夾回 0～1、形狀夾回最後一個、型別不對的維持預設")
+	_expect(odd.spray_size == 2.5 and odd.spray_star_points == 3 and is_equal_approx(odd.spray_outline_width, 0.05), "數字夾回範圍：大小 2.5、角數 3、外框寬度 0.05")
+	odd.spray_glow = false
+	odd.spray_outline = true
+	odd.spray_outline_color = Color.CYAN
+	odd.spray_glow_color = Color(0, 1, 0, 0.3)
+	var back: CreatureDesign = CreatureDesign.from_data(bytes_to_var(var_to_bytes(odd.to_dict())))
+	var same: bool = true
+	for field: String in spray:
+		same = same and back.get(field) == odd.get(field)
+	_expect(same, "轉成連線的格式再讀回來，15 個欄位都不變")
+	for shape: int in 6:
+		_expect(Food.outline(shape).size() >= 4, "形狀 %d 有輪廓" % shape)
+	_expect(Food.outline(Food.Shape.STAR, 7, 0.3).size() == 14 and Food.outline(Food.Shape.STAR).size() == 10, "星星的角數會變（7 角 14 個點、5 角 10 個點）")
 
 
 func _test_garbage() -> void:

@@ -11,6 +11,8 @@ extends Resource
 @export var hints: Dictionary = {}
 ## 三種長大方式的說明，順序跟「長大方式」選單一樣
 @export_multiline var growth_help: PackedStringArray = []
+## 「飼料」分頁的說明
+@export_multiline var feed_help: String = ""
 
 
 ## 欄位的中文名稱，沒有就用欄位名稱

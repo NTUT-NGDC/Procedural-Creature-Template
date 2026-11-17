@@ -148,6 +148,20 @@ func _test_network() -> void:
 	_expect(not client._foods.has(food_id) and (copy == null or not is_instance_valid(copy) or copy.is_queued_for_deletion()), "被吃掉的飼料，學員那邊也不見")
 	var drifted: int = client._foods.size()
 	_expect(drifted == host._foods.size(), "飼料數量一樣（%d）" % drifted)
+	host.tank.player.boost_spent.emit(Vector2(700, 500))
+	var host_food: int = host._next_food_id - 1
+	host_side.creature.boost_spent.emit(Vector2(720, 500))
+	var client_food: int = host._next_food_id - 1
+	await _frames(10)
+	var host_design: CreatureDesign = (client.players[1] as OnlineBattle.Player).creature.design
+	var sprayed: Food = client._foods.get(host_food)
+	_expect(sprayed != null and sprayed.look == host_design, "主機的生物掉的飼料：學員照主機那隻的設計檔畫")
+	_expect(client._foods.get(client_food) != null and (client._foods[client_food] as Food).look == client.tank.player.design, "學員自己掉的飼料：照自己的設計檔畫")
+	_expect(client._foods.get(food_id) == null or (client._foods[food_id] as Food).look == null, "一般的飼料：沒有設計檔")
+	client.call("_remove_client_food", host_food)
+	await _seconds(OnlineBattle.FOOD_SYNC_INTERVAL + 0.3)
+	sprayed = client._foods.get(host_food)
+	_expect(sprayed != null and sprayed.look == host_design, "每秒對一次飼料：補回來的也照主機那隻的設計檔畫")
 
 	print("--- 撞死 ---")
 	host_side.creature.grow(2)
@@ -262,3 +276,7 @@ func _expect(ok: bool, message: String) -> void:
 	print(("  PASS " if ok else "  FAIL ") + message)
 	if not ok:
 		_failures += 1
+
+
+func _seconds(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout

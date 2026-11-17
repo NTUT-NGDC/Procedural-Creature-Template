@@ -39,6 +39,10 @@ const MOVE_MODES: PackedStringArray = ["跟著滑鼠", "自己游", "停住"]
 const WORKSHOP_FLOW: float = 12.0
 ## 複雜度超過上限時，能力那幾行的顏色
 const COMPLEXITY_OVER_COLOR: Color = Color("#ff6b5e")
+## 「噴一下看看」：按一下噴幾顆、每顆隔幾秒、噴出來的飼料幾秒後消失
+const SPRAY_BURST: int = 6
+const SPRAY_INTERVAL: float = 0.12
+const SPRAY_LIFE: float = 3.0
 
 ## 打開工坊時先讀哪一隻
 @export_file("*.tres") var start_design: String = "res://example/creatures/snake/design.tres"
@@ -73,6 +77,12 @@ var _side_panel: PanelContainer
 var _body_editor: PartEditor
 var _growth_editor: PartEditor
 var _growth_help: Label
+## 「飼料」分頁：噴出的飼料的外觀、預覽
+var _feed_editor: PartEditor
+var _feed_preview: Control
+## 「噴一下看看」還要噴幾顆、還要等幾秒才噴下一顆
+var _spray_left: int = 0
+var _spray_timer: float = 0.0
 ## 零件清單的分頁：欄位名稱 → {"selector", "editor", "selected", "remove", "duplicate", "add"}
 var _lists: Dictionary = {}
 var _file_dialog: FileDialog
@@ -285,6 +295,7 @@ func _on_design_changed() -> void:
 	_creature.apply_design()
 	_update_stats()
 	_history_timer.start()
+	_feed_preview.queue_redraw()
 	design_edited.emit(design)
 
 
@@ -423,7 +434,9 @@ func _list_infos() -> Array:
 
 func _rebuild_editors() -> void:
 	_body_editor.edit(design.body, LABELS)
-	_growth_editor.edit(design, LABELS)
+	_growth_editor.edit(design, LABELS, design.spray_fields())
+	_feed_editor.edit(design, LABELS, _fields_except(design, design.spray_fields()))
+	_feed_preview.queue_redraw()
 	_growth_help.text = "\n\n".join(LABELS.growth_help)
 	for info: Array in _list_infos():
 		_rebuild_list(info[0])
@@ -583,6 +596,7 @@ func _build_ui() -> void:
 	_growth_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	growth.add_child(_growth_help)
 	_add_tab("長大", growth)
+	_add_tab("飼料", _build_feed_tab())
 
 	_file_dialog = FileDialog.new()
 	_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -706,6 +720,78 @@ func _build_bottom_bar() -> Control:
 	row.add_child(move)
 	box.add_child(row)
 	return box
+
+
+## 「飼料」分頁：掉出來的飼料長怎樣（設計檔 spray_ 開頭的欄位），下面畫預覽和「噴一下看看」
+func _build_feed_tab() -> Control:
+	var feed := VBoxContainer.new()
+	_feed_editor = PartEditor.new()
+	_feed_editor.changed.connect(_on_design_changed)
+	feed.add_child(_feed_editor)
+	_feed_preview = Control.new()
+	_feed_preview.custom_minimum_size = Vector2(0, WorkshopSettings.ui(80))
+	_feed_preview.draw.connect(_draw_feed_preview)
+	feed.add_child(_feed_preview)
+	feed.add_child(_button("噴一下看看", func() -> void: _spray_left = SPRAY_BURST, "生物的尾巴掉出幾顆飼料（只給你看，不能吃）。按住空白鍵可以一直噴"))
+	var help := Label.new()
+	help.text = LABELS.feed_help
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	feed.add_child(help)
+	return feed
+
+
+## 預覽：左邊放大的一顆，右邊是遊戲裡的實際大小
+func _draw_feed_preview() -> void:
+	var middle: float = _feed_preview.size.y / 2.0
+	Food.draw_look(_feed_preview, Vector2(50, middle), Food.RADIUS * 3.0, design, Color.WHITE, 0.0)
+	Food.draw_look(_feed_preview, Vector2(140, middle), Food.RADIUS, design, Color.WHITE, 0.0)
+
+
+# ---------------------------------------------------------------- 試噴
+
+
+func _process(delta: float) -> void:
+	_spray_timer -= delta
+	if _spray_timer > 0.0:
+		return
+	if _spray_left > 0 or _space_held():
+		_spray_left = maxi(_spray_left - 1, 0)
+		_spray_timer = SPRAY_INTERVAL
+		spray_test_food()
+
+
+## 按住空白鍵（正在打字的時候不算）
+func _space_held() -> bool:
+	return Input.is_physical_key_pressed(KEY_SPACE) and not get_viewport().gui_get_focus_owner() is LineEdit
+
+
+## 從生物的尾巴掉一顆飼料：長得跟生態缸裡加速掉的一樣，但不能吃，幾秒後淡掉
+func spray_test_food() -> Food:
+	var body: ChainBody = _creature.get_body()
+	if body == null:
+		return null
+	var points: PackedVector2Array = body.get_points()
+	var food := Food.new()
+	food.edible = false
+	food.look = design
+	food.floor_y = _stage.size.y
+	food.max_x = _stage.size.x
+	food.position = points[points.size() - 1] + Vector2(randf_range(-6.0, 6.0), randf_range(-6.0, 6.0))
+	_stage.add_child(food)
+	var fade: Tween = food.create_tween()
+	fade.tween_interval(SPRAY_LIFE - 0.5)
+	fade.tween_property(food, "self_modulate:a", 0.0, 0.5)
+	fade.tween_callback(food.queue_free)
+	return food
+
+
+## 設計資料的欄位裡，keep 以外的全部（給 PartEditor 的 skip 用：只顯示 keep 這幾欄）
+static func _fields_except(part: PartDesign, keep: PackedStringArray) -> PackedStringArray:
+	var result := PackedStringArray()
+	for prop: Dictionary in part.fields():
+		if not prop.name in keep:
+			result.append(prop.name)
+	return result
 
 
 ## 零件清單的分頁：上面是選單和「新增、複製、刪除」，下面是選到的那個零件的控制項
