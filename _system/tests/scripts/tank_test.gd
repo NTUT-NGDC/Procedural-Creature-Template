@@ -11,6 +11,8 @@ extends Node
 ## 8. 離開生態缸：水流歸零
 ## 9. 對戰地圖（battle_tank.tscn）：3 × 3、沒有 NPC、水草海葵都在沙地上；
 ##    復活位置：離每隻生物的頭、身體越遠越好；點滑鼠不會放飼料
+## 10. 手機搖桿：電腦上預設不出現；「總是顯示」時左半邊推搖桿轉向、放開照原方向游，
+##     右下角按住加速，右半邊點一下放飼料，最上面一條（暫停按鈕）不算；滑鼠點缸不會另外放飼料；暫停回來加速會放開
 ##
 ## 在命令列執行：
 ##   godot --headless --path . res://_system/tests/tank_test.tscn
@@ -31,6 +33,7 @@ func _ready() -> void:
 	await _test_plant_limit()
 	await _test_no_player()
 	await _test_battle_tank()
+	await _test_joystick()
 
 	if _failures == 0:
 		print("[生態缸測試] 全部 PASS")
@@ -281,6 +284,82 @@ func _tail_of(creature: Creature) -> Vector2:
 ## 離植物遠一點、但鏡頭還看得到它的地方（看不到的植物會暫停）
 func _away(plant: Node2D) -> Vector2:
 	return plant.global_position + Vector2(450, -450)
+
+
+func _test_joystick() -> void:
+	print("--- 手機搖桿 ---")
+	var tank: Tank = await _spawn({"food_interval": 0.0})
+	_expect(tank.joystick == null and not tank.player.touch_control, "電腦上（沒有觸控螢幕）預設不出現搖桿，玩家照常用滑鼠")
+	await _free(tank)
+
+	tank = await _spawn({"food_interval": 0.0, "touch_joystick": 1})
+	var joystick: TouchJoystick = tank.joystick
+	var player: Creature = tank.player
+	var foods: Node2D = tank.get_node("%Foods")
+	_expect(joystick != null and joystick.get_parent() == tank.get_node("%HUD") and player.touch_control, "「總是顯示」：搖桿在 HUD 上，玩家改聽搖桿的")
+	_touch(tank, 0, Vector2(250, 500), true)
+	_drag(tank, 0, Vector2(250, 400))
+	_expect(is_equal_approx(player.touch_angle, -PI / 2.0), "往上推：生物往上轉")
+	await _seconds(0.6)
+	_expect(absf(angle_difference(player.heading, -PI / 2.0)) < 0.2, "過一下子頭真的朝上了")
+	_drag(tank, 0, Vector2(250 - 300, 400))
+	_expect(joystick._stick_knob.distance_to(joystick._stick_center) <= joystick.stick_radius + 0.01, "推出外圈：小圓不會跑出外圈（搖桿跟著手指走）")
+	_touch(tank, 0, Vector2(250 - 300, 400), false)
+	var angle: float = player.touch_angle
+	await _frames(5)
+	_expect(player.touch_angle == angle and player.get_stats() != null, "放開手指：照原方向繼續游")
+	_touch(tank, 1, joystick.boost_center(), true)
+	_expect(player.touch_boost and joystick.is_boosting(), "按住右下角的加速鈕：加速")
+	_touch(tank, 1, joystick.boost_center(), false)
+	_expect(not player.touch_boost, "放開加速鈕：不加速")
+	var count: int = foods.get_child_count()
+	_touch(tank, 2, Vector2(900, 300), true)
+	_touch(tank, 2, Vector2(902, 301), false)
+	_expect(foods.get_child_count() == count + 1, "右半邊點一下：放一個飼料")
+	_touch(tank, 2, Vector2(900, 300), true)
+	_drag(tank, 2, Vector2(1000, 300))
+	_touch(tank, 2, Vector2(1000, 300), false)
+	_touch(tank, 3, Vector2(1100, 40), true)
+	_touch(tank, 3, Vector2(1100, 40), false)
+	_expect(foods.get_child_count() == count + 1, "滑過去、點最上面一條（暫停按鈕那裡）：不放飼料")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.device = InputEvent.DEVICE_ID_EMULATION  # 手指碰螢幕時系統模擬出來的滑鼠點擊
+	click.position = _to_window(tank, Vector2(900, 300))
+	click.global_position = click.position
+	tank.get_viewport().push_input(click)
+	await get_tree().process_frame
+	_expect(foods.get_child_count() == count + 1, "模擬出來的滑鼠點擊：不會另外放飼料")
+	_touch(tank, 1, joystick.boost_center(), true)
+	get_tree().paused = true
+	await _frames(2)
+	get_tree().paused = false
+	await _frames(2)
+	_expect(not player.touch_boost and not joystick.is_boosting(), "暫停時放開的手指收不到：回來時加速會放開")
+	await _free(tank)
+
+
+## 手指按下、放開（畫面座標）
+func _touch(tank: Tank, finger: int, at: Vector2, pressed: bool) -> void:
+	var touch := InputEventScreenTouch.new()
+	touch.index = finger
+	touch.position = _to_window(tank, at)
+	touch.pressed = pressed
+	tank.get_viewport().push_input(touch)
+
+
+## 畫面座標（1280 × 720）→ 視窗座標（push_input 要的；headless 的視窗很小，會被拉伸）
+func _to_window(tank: Tank, at: Vector2) -> Vector2:
+	return tank.get_viewport().get_final_transform() * at
+
+
+## 手指拖到 at（畫面座標）
+func _drag(tank: Tank, finger: int, at: Vector2) -> void:
+	var drag := InputEventScreenDrag.new()
+	drag.index = finger
+	drag.position = _to_window(tank, at)
+	tank.get_viewport().push_input(drag)
 
 
 func _spawn(settings: Dictionary) -> Tank:

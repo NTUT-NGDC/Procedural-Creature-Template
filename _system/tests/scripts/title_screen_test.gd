@@ -5,8 +5,9 @@ extends Node
 ## 3. 音量：調整後會存檔，重新讀取後音量和滑桿位置都對；拉到 0 是靜音
 ## 4. 暫停選單：打開時遊戲暫停、選單照常運作；繼續後解除暫停；按 Esc 也能打開；回到標題時已解除暫停
 ## 5. 背景：玩家生物用「漫遊」在按鈕後面游；沒設定玩家生物時不顯示、不會當掉
+## 5.5 換生物：「＜」「＞」換、背景跟著換、繞一圈、回標題還記得、可以關掉
 ## 6. 完整流程跑兩輪：標題 → 開始 → 生態缸（玩家生物就是標題設定的那隻）→ 吃東西升級 → 暫停選單回標題
-## 7. 連線對戰：標題 → 連線畫面 → 開主機 → 離開 → 回標題（連線本身在 battle_test 測）
+## 7. 連線對戰：標題選塗鴉蛇 → 連線畫面（預覽、圖多大）→ 開主機 → 離開 → 回標題（連線本身在 battle_test 測）
 ##
 ##
 ## 測試會暫時改掉 user://sound_settings.cfg，結束時還原。
@@ -35,6 +36,7 @@ func _ready() -> void:
 	await _test_sound_settings()
 	await _test_pause_menu()
 	await _test_background_creature()
+	await _test_choose()
 	await _test_full_flow()
 	await _test_battle_flow()
 
@@ -272,13 +274,67 @@ func _test_full_flow() -> void:
 		_expect(not get_tree().paused and WaterFlow.strength == 0.0, "第 %d 輪：回到標題時已解除暫停、水流歸零" % round_number)
 
 
-## 選單裡文字含有 text 的那一項（找不到回傳 0）
-func _find_item(option: OptionButton, text: String) -> int:
-	for i: int in option.item_count:
-		if text in option.get_item_text(i):
-			return i
-	_expect(false, "選單裡找得到「%s」" % text)
-	return 0
+## 在標題畫面按「＞」，換到名稱是 creature_name 的生物（找不到的話測試失敗）
+func _choose_by_name(title: Node, creature_name: String) -> void:
+	for i: int in 30:
+		if (title.get_node("%ChoiceName") as Label).text == creature_name:
+			return
+		(title.get_node("%NextButton") as Button).pressed.emit()
+	_expect(false, "標題畫面選得到「%s」" % creature_name)
+
+
+## 換生物：「＜」「＞」換生物、背景跟著換、會繞一圈、記得上次選的、可以關掉
+func _test_choose() -> void:
+	print("--- 標題畫面換生物 ---")
+	var script: GDScript = load("res://game/title_screen/scripts/title_screen.gd")
+	script.set("chosen_path", "")
+	var snake: CreatureDesign = load(SNAKE_DESIGN)
+	var spider_name: String = (load("res://example/creatures/spider/design.tres") as CreatureDesign).creature_name
+	var title: Control = TITLE_SCENE.instantiate()
+	add_child(title)
+	await get_tree().process_frame
+	var row: Control = title.get_node("%ChooseRow")
+	var choice_name: Label = title.get_node("%ChoiceName")
+	var choices: Array = title.get("_choices")
+	_expect(row.visible and choices.size() >= 8, "看得到「＜　生物名稱　＞」，可以選 %d 隻" % choices.size())
+	_expect(title.get("player_design") == snake and choice_name.text == snake.creature_name and "範例生物" in (title.get_node("%ChoiceGroup") as Label).text, "一開始選的是檢查器設定的蛇")
+	(title.get_node("%NextButton") as Button).pressed.emit()
+	var background: Creature = title.get_node("BackgroundCreature")
+	_expect(title.get("player_design") != snake and choice_name.text != snake.creature_name, "按「＞」換成下一隻")
+	_expect(background.design == title.get("player_design"), "背景的生物跟著換")
+	for i: int in choices.size() - 1:
+		(title.get_node("%NextButton") as Button).pressed.emit()
+	_expect(title.get("player_design") == snake, "按一圈回到蛇")
+	(title.get_node("%PrevButton") as Button).pressed.emit()
+	(title.get_node("%NextButton") as Button).pressed.emit()
+	_expect(title.get("player_design") == snake, "「＜」再「＞」回到原本那隻（第一隻往前會繞到最後一隻）")
+	await _choose_by_name(title, spider_name)
+	title.queue_free()
+	await get_tree().process_frame
+
+	title = TITLE_SCENE.instantiate()
+	add_child(title)
+	await get_tree().process_frame
+	_expect((title.get_node("%ChoiceName") as Label).text == spider_name and (title.get("player_design") as CreatureDesign).creature_name == spider_name, "回到標題畫面：還記得上次選的蜘蛛")
+	title.queue_free()
+	await get_tree().process_frame
+
+	title = TITLE_SCENE.instantiate()
+	title.set("allow_choose", false)
+	add_child(title)
+	await get_tree().process_frame
+	_expect(not (title.get_node("%ChooseRow") as Control).visible and title.get("player_design") == snake, "關掉「讓玩家換生物」：看不到選擇那排，主角固定是檢查器設定的蛇")
+	title.queue_free()
+	await get_tree().process_frame
+
+	title = TITLE_SCENE.instantiate()
+	title.set("player_design", null)
+	add_child(title)
+	await get_tree().process_frame
+	_expect(not (title.get_node("%ChooseRow") as Control).visible, "沒設定玩家生物：看不到選擇那排（照原本的提示設定）")
+	title.queue_free()
+	await get_tree().process_frame
+	script.set("chosen_path", "")  # 後面的測試用回蛇
 
 
 ## 連線對戰的換場景流程（接在 _test_full_flow 後面，目前的場景是標題畫面）：
@@ -287,26 +343,18 @@ func _find_item(option: OptionButton, text: String) -> int:
 func _test_battle_flow() -> void:
 	print("--- 連線對戰：換場景 ---")
 	var title: Node = get_tree().current_scene
+	var doodle_name: String = (load("res://example/creatures/doodle/design.tres") as CreatureDesign).creature_name
+	await _choose_by_name(title, doodle_name)
 	var battle_button: Button = title.get_node("%BattleButton")
 	_expect(battle_button.visible, "電腦版看得到「連線對戰」")
 	battle_button.pressed.emit()
 	_expect(await _wait_until(func() -> bool: return _current_scene_path() == LOBBY_PATH), "按「連線對戰」換到連線畫面")
 	var lobby: Node = get_tree().current_scene
-	_expect(lobby.get("player_design") != null and (lobby.get("player_design") as CreatureDesign).resource_path == SNAKE_DESIGN, "帶著標題畫面設定的蛇")
-	var option: OptionButton = lobby.get_node("%CreatureOption")
+	var lobby_design: CreatureDesign = lobby.get("player_design")
+	_expect(lobby_design != null and lobby_design.creature_name == doodle_name, "帶著標題畫面選的塗鴉蛇")
 	var preview: Creature = lobby.get("_preview")
-	_expect(option.item_count >= 8 and "範例：" in option.get_item_text(option.selected) and "snake" in option.get_item_text(option.selected), "選單列出範例生物，選好的是蛇")
-	_expect(preview != null and preview.visible and preview.design == lobby.get("player_design"), "預覽框裡游的是選好的生物")
-	var spider: int = _find_item(option, "（spider）")
-	option.select(spider)
-	option.item_selected.emit(spider)
-	_expect((lobby.get("player_design") as CreatureDesign).creature_name == (load("res://example/creatures/spider/design.tres") as CreatureDesign).creature_name, "換成蜘蛛：要帶進對戰的生物跟著換")
-	_expect(preview.design == lobby.get("player_design") and "複雜度" in (lobby.get_node("%CreatureInfo") as Label).text, "預覽和說明跟著換")
-	var doodle: int = _find_item(option, "（doodle）")
-	option.select(doodle)
-	option.item_selected.emit(doodle)
-	_expect("自己的圖" in (lobby.get_node("%CreatureInfo") as Label).text, "有自己的圖的生物：說明寫圖有多大")
-	_expect(not BattlePacket.read_images(lobby.get("player_design")).is_empty(), "從選單讀的設計檔找得到自己的圖")
+	_expect(preview != null and preview.design == lobby_design and (lobby.get_node("%CreatureName") as Label).text == doodle_name, "預覽框裡游的、寫的名稱都是選好的生物")
+	_expect("自己的圖" in (lobby.get_node("%CreatureInfo") as Label).text and not BattlePacket.read_images(lobby_design).is_empty(), "有自己的圖：說明寫圖有多大，也讀得到圖")
 	(lobby.get_node("%AddressEdit") as LineEdit).text = ""
 	(lobby.get_node("%JoinButton") as Button).pressed.emit()
 	_expect("請填主機的 IP" in (lobby.get_node("%MessageLabel") as Label).text and _current_scene_path() == LOBBY_PATH, "沒填 IP：顯示提示，不換場景")
@@ -323,7 +371,7 @@ func _test_battle_flow() -> void:
 	_expect(host_bar.visible and (battle.get("tank") as Tank).player != null, "主機：自己的生物在缸裡，看得到「開始對戰」那一排")
 	(battle.get_node("BattleHud/%LeaveButton") as Button).pressed.emit()
 	_expect(await _wait_until(func() -> bool: return _current_scene_path() == LOBBY_PATH), "按「離開」回到連線畫面")
-	_expect(get_tree().current_scene.get("player_design") != null and (get_tree().current_scene.get("player_design") as CreatureDesign).resource_path != SNAKE_DESIGN, "回到連線畫面：還記得上次選的生物（不是標題的蛇）")
+	_expect(get_tree().current_scene.get("player_design") != null and (get_tree().current_scene.get("player_design") as CreatureDesign).creature_name == doodle_name, "回到連線畫面：還是選好的塗鴉蛇")
 	(get_tree().current_scene.get_node("%HostButton") as Button).pressed.emit()
 	await _wait_until(func() -> bool: return _current_scene_path() == BATTLE_PATH)
 	await get_tree().process_frame

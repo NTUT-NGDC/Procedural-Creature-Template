@@ -68,6 +68,49 @@ text = "我的池塘生物"
 horizontal_alignment = 1
 autowrap_mode = 3
 
+[node name="ChooseRow" type="HBoxContainer" parent="Margin/VBox" unique_id=1820736154]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 22
+
+[node name="PrevButton" type="Button" parent="Margin/VBox/ChooseRow" unique_id=1172093648]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(66, 66)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 33
+text = "＜"
+
+[node name="ChoiceBox" type="VBoxContainer" parent="Margin/VBox/ChooseRow" unique_id=1630495172]
+custom_minimum_size = Vector2(352, 0)
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="ChoiceName" type="Label" parent="Margin/VBox/ChooseRow/ChoiceBox" unique_id=1388042577]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 33
+text = "（生物名稱）"
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="ChoiceGroup" type="Label" parent="Margin/VBox/ChooseRow/ChoiceBox" unique_id=1904416283]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.65)
+theme_override_font_sizes/font_size = 22
+text = "（範例生物　1／9）"
+horizontal_alignment = 1
+
+[node name="NextButton" type="Button" parent="Margin/VBox/ChooseRow" unique_id=1455218809]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(66, 66)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 33
+text = "＞"
+
 [node name="Buttons" type="VBoxContainer" parent="Margin/VBox" unique_id=1742977126]
 layout_mode = 2
 size_flags_horizontal = 4

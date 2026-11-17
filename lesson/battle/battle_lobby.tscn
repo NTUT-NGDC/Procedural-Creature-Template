@@ -89,15 +89,17 @@ theme_override_constants/separation = 11
 
 [node name="CreatureLabel" type="Label" parent="Center/Panel/VBox/CreatureRow/CreatureBox"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.8, 1)
 theme_override_font_sizes/font_size = 22
 text = "你的生物"
 
-[node name="CreatureOption" type="OptionButton" parent="Center/Panel/VBox/CreatureRow/CreatureBox"]
+[node name="CreatureName" type="Label" parent="Center/Panel/VBox/CreatureRow/CreatureBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(290, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
-clip_text = true
-fit_to_longest_item = false
+theme_override_font_sizes/font_size = 33
+text = "（生物名稱）"
+text_overrun_behavior = 3
 
 [node name="CreatureInfo" type="Label" parent="Center/Panel/VBox/CreatureRow/CreatureBox"]
 unique_name_in_owner = true

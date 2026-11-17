@@ -98,6 +98,11 @@ var boosting: bool = false
 var puppet: bool = false
 ## 遠端操控時，玩家想往哪走、要不要加速（_get_move_target() 的結果）。連線程式把這個傳給主機
 var wanted: Dictionary = {}
+## 手機的虛擬搖桿（生態缸在觸控螢幕上接上）：打開的話，方向和加速聽搖桿的，不讀滑鼠
+var touch_control: bool = false
+## 搖桿推的方向（弧度；放開手指就維持最後的方向）、加速鈕有沒有按住
+var touch_angle: float = 0.0
+var touch_boost: bool = false
 ## 現在按住的鍵（加速用：按住任何鍵都算）
 var _held_keys: Dictionary = {}
 ## 加速累積消耗了多少飼料（滿 1 個就真的扣掉一個）
@@ -156,6 +161,8 @@ func _get_move_target() -> Dictionary:
 			_brain_decision = brain.call()
 		if not _brain_decision.is_empty():
 			return _brain_decision
+	if touch_control:  # 手機搖桿：一直全速往前，搖桿只管方向
+		return {"angle": touch_angle, "speed": speed, "boost": touch_boost}
 	match control_mode:
 		Mode.MOUSE:
 			var to_mouse: Vector2 = get_global_mouse_position() - global_position

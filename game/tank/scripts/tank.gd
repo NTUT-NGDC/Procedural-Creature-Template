@@ -34,6 +34,7 @@ const PART_REACH: float = 150.0
 const DROPPED_FOOD_WAIT: float = 0.6
 ## 找復活位置時試幾個地方
 const SPAWN_TRIES: int = 30
+const JOYSTICK_SCENE: PackedScene = preload("res://game/tank/touch_joystick.tscn")
 const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %d），多的先藏起來，網頁版才跑得動"
 
 @export_group("遊戲")
@@ -79,6 +80,11 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 ## 點一下滑鼠左鍵放一個飼料（對戰時關掉）
 @export var click_to_feed: bool = true
 
+@export_group("手機")
+## 手機搖桿：左半邊推搖桿轉向、右下角按住加速、右半邊點一下放飼料。
+## 「總是顯示」是在電腦上用滑鼠測試用的（滑鼠當一根手指）
+@export_enum("手機才顯示", "總是顯示（電腦上測試用）", "不顯示") var touch_joystick: int = 0
+
 @export_group("水流")
 ## 水流強度（像素／秒），0 是靜水
 @export_range(0, 200, 1) var flow_strength: float = 25.0
@@ -121,6 +127,8 @@ var _active_plants: Array[Node2D] = []
 ## 連線對戰的客戶端：不放自己的玩家、不長飼料、不判斷誰吃到誰撞到誰（主機說了算），
 ## 生物和飼料由連線程式照主機傳來的資料擺。要在加進場景之前設定
 var remote_view: bool = false
+## 手機搖桿（沒有用的話是 null）
+var joystick: TouchJoystick
 
 
 func _ready() -> void:
@@ -141,6 +149,7 @@ func _ready() -> void:
 	if remote_view:
 		return
 	_spawn_player()
+	_add_joystick()
 	for i: int in npc_target_count():
 		spawn_npc()
 
@@ -168,8 +177,30 @@ func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
 	var click: InputEventMouseButton = event as InputEventMouseButton
-	if click_to_feed and not remote_view and click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+	if click_to_feed and not remote_view and joystick == null and click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
 		drop_food(get_global_mouse_position())
+
+
+## 觸控螢幕（或設成「總是顯示」）：加上手機搖桿，玩家改聽搖桿的
+func _add_joystick() -> void:
+	if player == null or touch_joystick == 2 or (touch_joystick == 0 and not is_phone()):
+		return
+	joystick = JOYSTICK_SCENE.instantiate()
+	_hud.add_child(joystick)
+	player.touch_control = true
+	player.touch_angle = player.heading
+	joystick.steered.connect(func(angle: float) -> void: player.touch_angle = angle)
+	joystick.boost_changed.connect(func(on: bool) -> void: player.touch_boost = on)
+	joystick.feed_tapped.connect(func(at: Vector2) -> void:
+		if click_to_feed:
+			drop_food(get_canvas_transform().affine_inverse() * at))
+
+
+
+## 是不是在手機上玩：網頁版在 Android／iPhone 的瀏覽器開，或是手機版。
+## 不用「有沒有觸控螢幕」判斷，因為有觸控螢幕的筆電也算，會害滑鼠不能用
+static func is_phone() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
 
 
 # ---------------------------------------------------------------- 生物
@@ -504,9 +535,10 @@ func _update_hud() -> void:
 		var count: int = stats.stars(ability, balance.max_stars)
 		return "★".repeat(count) + "☆".repeat(balance.max_stars - count)
 	best_level = maxi(best_level, player.level)
-	_hud.call("show_status", game_name, "等級 %d　再吃 %d 個升級　最高 %d 級　撞倒 %d 隻\n速度 %s　轉向 %s　抓取 %s　視野 %s\n按住任何鍵或滑鼠：加速（消耗飼料，用完會掉級）" % [
+	_hud.call("show_status", game_name, "等級 %d　再吃 %d 個升級　最高 %d 級　撞倒 %d 隻\n速度 %s　轉向 %s　抓取 %s　視野 %s\n%s：加速（消耗飼料，用完會掉級）" % [
 		player.level, stats.level_cost - player.food_progress, best_level, kills,
-		stars.call("speed"), stars.call("turn"), stars.call("grab"), stars.call("sight")])
+		stars.call("speed"), stars.call("turn"), stars.call("grab"), stars.call("sight"),
+		"按住右下角的「加速」" if joystick != null else "按住任何鍵或滑鼠"])
 
 
 func _play_music() -> void:

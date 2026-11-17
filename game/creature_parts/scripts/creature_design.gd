@@ -102,7 +102,8 @@ static func _decode_list(value: Variant, script: GDScript, limit: int) -> Array:
 
 ## 列出資料夾裡的生物（一隻一個資料夾，裡面有 design.tres）。
 ## folders 是「資料夾 → 顯示的前綴」，例如 {"res://my_creature/": "我的"}，照順序列。
-## 回傳 [{"path": 設計檔路徑, "label": "我的：小火龍（dragon）"}]
+## 回傳 [{"path": 設計檔路徑, "label": "我的：小火龍（dragon）", "group": "我的", "name": "小火龍"}]
+## 匯出的版本（網頁版）裡 design.tres 會變成 design.tres.remap，所以用 ResourceLoader.exists() 找，不用 FileAccess
 static func list_designs(folders: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for folder: String in folders:
@@ -110,10 +111,11 @@ static func list_designs(folders: Dictionary) -> Array[Dictionary]:
 			continue
 		for sub: String in DirAccess.get_directories_at(folder):
 			var path: String = folder + sub + "/design.tres"
-			if not FileAccess.file_exists(path):
+			if not ResourceLoader.exists(path):
 				continue
 			var loaded: CreatureDesign = load_fresh(path)
-			result.append({"path": path, "label": "%s：%s（%s）" % [folders[folder], loaded.creature_name if loaded != null else "?", sub]})
+			var creature_name: String = loaded.creature_name if loaded != null else "?"
+			result.append({"path": path, "label": "%s：%s（%s）" % [folders[folder], creature_name, sub], "group": folders[folder], "name": creature_name})
 	return result
 
 

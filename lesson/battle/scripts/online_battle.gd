@@ -109,6 +109,7 @@ func _ready() -> void:
 	tank.process_mode = Node.PROCESS_MODE_ALWAYS
 	tank.remote_view = not is_host
 	tank.game_name = "連線對戰"
+	tank.touch_joystick = 2  # 連線只在電腦上玩，不放手機搖桿
 	tank.player_design = my_design if is_host else null
 	add_child(tank)
 	move_child(tank, 0)  # 對戰的介面在生態缸上面

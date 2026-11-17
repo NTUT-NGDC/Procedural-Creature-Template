@@ -12,12 +12,19 @@ extends Control
 ## 背景會有一隻生物在游：就是下面「玩家生物」設定的設計檔，用「漫遊」的方式游。
 ## 換成自己的生物，背景就會變成自己的生物（標題畫面就是作品的展示）。
 ##
+## 遊戲名稱下面有「＜　生物名稱　＞」：玩家可以換成 my_creature 裡的生物或範例生物，背景的生物跟著換，
+## 開始遊戲、連線對戰都用選好的那隻。一開始選的是「玩家生物」。
+## 想讓主角固定是自己的生物：把檢查器的「Allow Choose」（讓玩家換生物）關掉。
+##
 ## 點最上層的 TitleScreen 節點，在檢查器設定：
 ##   ・Player Design：把自己的設計檔（my_creature/你的資料夾/design.tres）從檔案系統拖進來
+##   ・Allow Choose：讓玩家在標題畫面換生物（預設打開）
 ##   ・Title Music：把標題畫面的背景音樂拖進來（空著就沒有音樂）
 
-## 玩家生物：你的設計檔（design.tres）。按「開始遊戲」後，生態缸裡游的就是這隻
+## 玩家生物：你的設計檔（design.tres）。按「開始遊戲」後，生態缸裡游的就是這隻（玩家沒換生物的話）
 @export var player_design: CreatureDesign
+## 讓玩家換生物：標題畫面顯示「＜　生物名稱　＞」，可以換成 my_creature 裡的或範例生物。關掉的話主角固定是「玩家生物」
+@export var allow_choose: bool = true
 ## 按「開始遊戲」後要換到的生態缸場景（社長維護，不用改）
 @export_file("*.tscn") var tank_scene: String = "res://game/tank/tank.tscn"
 ## 按「連線對戰」後要換到的連線畫面（社課用，網頁版沒有這個按鈕）
@@ -26,6 +33,15 @@ extends Control
 ## 音量跟著設定裡的「音樂」滑桿，播完會從頭再播
 @export var title_music: AudioStream
 
+## 可以選的生物：資料夾 → 顯示的分類（照順序列，自己的在前面）
+const DESIGN_FOLDERS: Dictionary = {"res://my_creature/": "我的生物", "res://example/creatures/": "範例生物"}
+
+## 這次開遊戲選過的生物（設計檔路徑；空字串是檢查器設定的「玩家生物」）。回到標題畫面時還記得
+static var chosen_path: String = ""
+
+@onready var _choose_row: Control = %ChooseRow
+@onready var _choice_name: Label = %ChoiceName
+@onready var _choice_group: Label = %ChoiceGroup
 @onready var _start_button: Button = %StartButton
 @onready var _battle_button: Button = %BattleButton
 @onready var _settings_button: Button = %SettingsButton
@@ -33,6 +49,15 @@ extends Control
 @onready var _message_label: Label = %MessageLabel
 @onready var _settings_panel: Control = %SettingsPanel
 @onready var _back_button: Button = %BackButton
+
+## 可以選的生物：[{"path": 設計檔路徑（檢查器設定的那隻不在資料夾裡的話是空字串）, "name": 名稱, "group": 分類}]
+var _choices: Array[Dictionary] = []
+## 現在選第幾隻
+var _choice_index: int = 0
+## 檢查器設定的「玩家生物」（換生物時 player_design 會被換掉，這裡留著原本的）
+var _default_design: CreatureDesign
+## 背景游的生物
+var _background_creature: Creature
 
 
 func _ready() -> void:
@@ -48,8 +73,57 @@ func _ready() -> void:
 	_settings_button.pressed.connect(_settings_panel.show)
 	_back_button.pressed.connect(_settings_panel.hide)
 	_quit_button.pressed.connect(get_tree().quit)
+	(%PrevButton as Button).pressed.connect(choose.bind(-1))
+	(%NextButton as Button).pressed.connect(choose.bind(1))
 	_play_title_music()
+	_default_design = player_design
+	_setup_choices()
 	_show_background_creature()
+
+
+# ---------------------------------------------------------------- 換生物
+
+
+## 列出可以選的生物，選好上次選的（沒有的話選「玩家生物」）。沒設定玩家生物或關掉換生物：不顯示
+func _setup_choices() -> void:
+	_choices.clear()
+	_choose_row.visible = allow_choose and _default_design != null
+	if not _choose_row.visible:
+		return
+	var default_path: String = _default_design.resource_path
+	for item: Dictionary in CreatureDesign.list_designs(DESIGN_FOLDERS):
+		_choices.append(item)
+	if not _choices.any(func(item: Dictionary) -> bool: return item.path == default_path):
+		_choices.push_front({"path": "", "name": _default_design.creature_name, "group": "你的生物"})
+	var want: String = chosen_path if chosen_path != "" else default_path
+	_choice_index = maxi(_choices.find_custom(func(item: Dictionary) -> bool: return item.path == want), 0)
+	choose(0)
+
+
+## 換到前一隻（-1）、下一隻（1），0 是重新顯示現在這隻。讀不到的設計檔跳過
+func choose(step: int) -> void:
+	if _choices.is_empty():
+		return
+	for i: int in _choices.size():
+		_choice_index = posmod(_choice_index + step, _choices.size())
+		var item: Dictionary = _choices[_choice_index]
+		var design: CreatureDesign = _design_of(item.path)
+		if design != null:
+			player_design = design
+			chosen_path = item.path
+			_choice_name.text = item.name
+			_choice_group.text = "%s　%d／%d" % [item.group, _choice_index + 1, _choices.size()]
+			if _background_creature != null:
+				_background_creature.design = design
+			return
+		step = 1 if step >= 0 else -1  # 這隻讀不到：往同一個方向再找下一隻
+
+
+## 設計檔路徑 → 設計檔。空字串或跟「玩家生物」同一個檔案，就用檢查器設定的那份
+func _design_of(path: String) -> CreatureDesign:
+	if path == "" or path == _default_design.resource_path:
+		return _default_design
+	return CreatureDesign.load_fresh(path)
 
 
 ## 讓「玩家生物」在背景用「漫遊」游來游去。沒有設定就不顯示
@@ -61,6 +135,7 @@ func _show_background_creature() -> void:
 	creature.control_mode = Creature.Mode.WANDER
 	creature.position = get_viewport_rect().get_center()
 	creature.name = "BackgroundCreature"
+	_background_creature = creature
 	add_child(creature)
 	move_child(creature, $BackgroundImage.get_index() + 1)  # 在背景圖上面、按鈕下面
 
