@@ -29,8 +29,15 @@ static func at(point: Vector2, time: float = now()) -> Vector2:
 	return flow / 1.5 * strength  # 兩個波加起來最大約 1.5，除掉讓「強度」就是最快的速度
 
 
+## 固定的時間（秒）：小於 0 是用電腦的時間。錄影（Movie Maker）時一幀算得比真的時間慢，
+## 展示場景（_system/showcase/）每一幀設定這個，水流才不會亂跳
+static var fixed_time: float = -1.0
+
+
 ## 現在的時間（秒）
 static func now() -> float:
+	if fixed_time >= 0.0:
+		return fixed_time
 	return Time.get_ticks_msec() / 1000.0
 
 
@@ -39,3 +46,4 @@ static func reset() -> void:
 	strength = 0.0
 	wave_size = 300.0
 	speed = 0.6
+	fixed_time = -1.0

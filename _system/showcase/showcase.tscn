@@ -1,0 +1,22 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://_system/showcase/scripts/showcase.gd" id="1_show"]
+[ext_resource type="Resource" path="res://_system/showcase/data/storyboard.tres" id="2_story"]
+[ext_resource type="Script" path="res://game/tank/scripts/tank_water.gd" id="3_water"]
+
+[node name="Showcase" type="Node2D"]
+script = ExtResource("1_show")
+storyboard = ExtResource("2_story")
+
+[node name="Water" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_water")
+
+[node name="Plants" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Creatures" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Camera" type="Camera2D" parent="."]
+unique_name_in_owner = true

@@ -1,0 +1,112 @@
+[gd_resource type="Resource" script_class="ShowcaseStoryboard" format=3]
+
+[ext_resource type="Script" path="res://_system/showcase/scripts/showcase_storyboard.gd" id="1_board"]
+[ext_resource type="Script" path="res://_system/showcase/scripts/showcase_actor.gd" id="2_actor"]
+[ext_resource type="Resource" path="res://example/creatures/dragon/design.tres" id="d0_dragon"]
+[ext_resource type="Resource" path="res://example/creatures/jellyfish/design.tres" id="d1_jellyfish"]
+[ext_resource type="Resource" path="res://example/creatures/octopus/design.tres" id="d2_octopus"]
+[ext_resource type="Resource" path="res://example/creatures/snake/design.tres" id="d3_snake"]
+[ext_resource type="Resource" path="res://example/creatures/centipede/design.tres" id="d4_centipede"]
+[ext_resource type="Resource" path="res://example/creatures/spider/design.tres" id="d5_spider"]
+
+[sub_resource type="Resource" id="Actor_0_dragon"]
+script = ExtResource("2_actor")
+design = ExtResource("d0_dragon")
+level = 4
+is_star = true
+role = 0
+lane_center = Vector2(0.5, 0.42)
+lane_radius = Vector2(0.32, 0.2)
+
+[sub_resource type="Resource" id="Actor_1_jellyfish"]
+script = ExtResource("2_actor")
+design = ExtResource("d1_jellyfish")
+level = 2
+role = 2
+feed_spot = 0
+
+[sub_resource type="Resource" id="Actor_2_octopus"]
+script = ExtResource("2_actor")
+design = ExtResource("d2_octopus")
+level = 3
+role = 2
+feed_spot = 3
+
+[sub_resource type="Resource" id="Actor_3_snake"]
+script = ExtResource("2_actor")
+design = ExtResource("d3_snake")
+body_color = Color(0.49, 0.85, 0.34, 1)
+level = 3
+role = 1
+pass_height = 0.3
+pass_offset = 0.25
+
+[sub_resource type="Resource" id="Actor_4_centipede"]
+script = ExtResource("2_actor")
+design = ExtResource("d4_centipede")
+body_color = Color(1.0, 0.79, 0.24, 1)
+level = 2
+role = 1
+pass_height = 0.72
+pass_from_right = true
+pass_offset = 0.45
+
+[sub_resource type="Resource" id="Actor_5_spider"]
+script = ExtResource("2_actor")
+design = ExtResource("d5_spider")
+body_color = Color(1.0, 0.44, 0.57, 1)
+level = 2
+role = 2
+feed_spot = 1
+
+[sub_resource type="Resource" id="Actor_6_jellyfish"]
+script = ExtResource("2_actor")
+design = ExtResource("d1_jellyfish")
+body_color = Color(1.0, 0.62, 0.8, 1)
+level = 0
+role = 2
+feed_spot = 2
+
+[sub_resource type="Resource" id="Actor_7_snake"]
+script = ExtResource("2_actor")
+design = ExtResource("d3_snake")
+body_color = Color(0.24, 0.76, 1.0, 1)
+level = 1
+role = 1
+pass_height = 0.86
+pass_offset = 0.7
+
+[sub_resource type="Resource" id="Actor_8_snake"]
+script = ExtResource("2_actor")
+design = ExtResource("d3_snake")
+body_color = Color(0.5, 1.0, 0.83, 1)
+level = 0
+role = 0
+lane_center = Vector2(0.72, 0.2)
+lane_radius = Vector2(0.14, 0.08)
+lane_reverse = true
+lane_phase = 0.3
+
+[sub_resource type="Resource" id="Actor_9_spider"]
+script = ExtResource("2_actor")
+design = ExtResource("d5_spider")
+body_color = Color(0.96, 0.96, 0.96, 1)
+level = 0
+role = 2
+feed_spot = 4
+
+[resource]
+script = ExtResource("1_board")
+caption_bones = "你所見的這些畫面不是用手畫的"
+caption_size = 55
+caption_y = 0.25
+feed_spots = PackedVector2Array(0.22, 0.2, 0.8, 0.42, 0.2, 0.6, 0.74, 0.7, 0.5, 0.27)
+personal_space = 160.0
+avoid_strength = 2.5
+chase_spread = 0.24
+food_per_spot = 6
+food_refill_time = 0.8
+food_spread = 0.1
+feed_range = 0.16
+ending_size = 44
+actors = Array[ExtResource("2_actor")]([SubResource("Actor_0_dragon"), SubResource("Actor_1_jellyfish"), SubResource("Actor_2_octopus"), SubResource("Actor_3_snake"), SubResource("Actor_4_centipede"), SubResource("Actor_5_spider"), SubResource("Actor_6_jellyfish"), SubResource("Actor_7_snake"), SubResource("Actor_8_snake"), SubResource("Actor_9_spider")])
