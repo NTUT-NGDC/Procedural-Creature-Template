@@ -35,9 +35,13 @@ extends Control
 
 ## 可以選的生物：資料夾 → 顯示的分類（照順序列，自己的在前面）
 const DESIGN_FOLDERS: Dictionary = {"res://my_creature/": "我的生物", "res://example/creatures/": "範例生物"}
+const MY_FOLDER: String = "res://my_creature/"
+const EXAMPLE_FOLDER: String = "res://example/"
 
-## 這次開遊戲選過的生物（設計檔路徑；空字串是檢查器設定的「玩家生物」）。回到標題畫面時還記得
+## 這次開遊戲按「＜」「＞」選過的生物（設計檔路徑）。回到標題畫面時還記得
 static var chosen_path: String = ""
+## 這次開遊戲有沒有按過「＜」「＞」（沒按過的話，一開始選誰見 _setup_choices()）
+static var has_chosen: bool = false
 
 @onready var _choose_row: Control = %ChooseRow
 @onready var _choice_name: Label = %ChoiceName
@@ -84,20 +88,37 @@ func _ready() -> void:
 # ---------------------------------------------------------------- 換生物
 
 
-## 列出可以選的生物，選好上次選的（沒有的話選「玩家生物」）。沒設定玩家生物或關掉換生物：不顯示
+## 列出可以選的生物：「玩家生物」排第一個，後面是 my_creature 的、範例的。一開始選誰：
+## 這次開遊戲換過就選上次選的；玩家生物還是範例、my_creature 又有生物，就選 my_creature 的第一隻；不然選玩家生物。
+## 沒設定玩家生物或關掉換生物：不顯示
 func _setup_choices() -> void:
 	_choices.clear()
 	_choose_row.visible = allow_choose and _default_design != null
 	if not _choose_row.visible:
 		return
 	var default_path: String = _default_design.resource_path
+	# 「玩家生物」排第一個，後面是 my_creature 的、範例的（跳過跟玩家生物同一個檔案的）
+	_choices.append({"path": default_path, "name": _default_design.creature_name, "group": _group_of(default_path)})
 	for item: Dictionary in CreatureDesign.list_designs(DESIGN_FOLDERS):
-		_choices.append(item)
-	if not _choices.any(func(item: Dictionary) -> bool: return item.path == default_path):
-		_choices.push_front({"path": "", "name": _default_design.creature_name, "group": "你的生物"})
-	var want: String = chosen_path if chosen_path != "" else default_path
+		if item.path != default_path:
+			_choices.append(item)
+	var want: String = default_path
+	if has_chosen:  # 這次開遊戲換過：選上次選的
+		want = chosen_path
+	elif default_path.begins_with(EXAMPLE_FOLDER):  # 玩家生物還是範例（還沒換成自己的）：有自己的生物就先選第一隻
+		var mine: int = _choices.find_custom(func(item: Dictionary) -> bool: return (item.path as String).begins_with(MY_FOLDER))
+		if mine >= 0:
+			want = _choices[mine].path
 	_choice_index = maxi(_choices.find_custom(func(item: Dictionary) -> bool: return item.path == want), 0)
 	choose(0)
+
+
+## 設計檔路徑 → 選單上的分類
+func _group_of(path: String) -> String:
+	for folder: String in DESIGN_FOLDERS:
+		if path.begins_with(folder):
+			return DESIGN_FOLDERS[folder]
+	return "你的生物"
 
 
 ## 換到前一隻（-1）、下一隻（1），0 是重新顯示現在這隻。讀不到的設計檔跳過
@@ -111,6 +132,8 @@ func choose(step: int) -> void:
 		if design != null:
 			player_design = design
 			chosen_path = item.path
+			if step != 0:
+				has_chosen = true
 			_choice_name.text = item.name
 			_choice_group.text = "%s　%d／%d" % [item.group, _choice_index + 1, _choices.size()]
 			if _background_creature != null:

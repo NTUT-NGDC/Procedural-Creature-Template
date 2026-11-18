@@ -663,11 +663,11 @@ func _food_snapshot(ids: PackedInt32Array, positions: PackedVector2Array, values
 	var alive: Dictionary = {}
 	for i: int in ids.size():
 		alive[ids[i]] = true
-		var food: Food = _foods.get(ids[i])
+		var food: Variant = _foods.get(ids[i])  # 可能已經被刪掉了：先確認還在，才當 Food 用
 		if food == null or not is_instance_valid(food):
 			_foods[ids[i]] = _add_client_food(positions[i], values[i], owners[i])
 		else:
-			food.global_position = positions[i]
+			(food as Food).global_position = positions[i]
 	for id: int in _foods.keys():
 		if not alive.has(id):
 			_remove_client_food(id)
@@ -683,10 +683,10 @@ func _add_client_food(at: Vector2, value: int, dropper: int, wait: float = 0.0) 
 
 
 func _remove_client_food(id: int) -> void:
-	var food: Food = _foods.get(id)
+	var food: Variant = _foods.get(id)  # 可能已經被刪掉了：先確認還在
 	_foods.erase(id)
 	if food != null and is_instance_valid(food):
-		food.queue_free()
+		(food as Node).queue_free()
 
 
 ## 有生物撞死了：是自己撞倒別人、或自己撞死的，顯示提示

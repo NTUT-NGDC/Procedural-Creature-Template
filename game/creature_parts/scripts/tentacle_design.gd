@@ -30,6 +30,8 @@ extends PartDesign
 @export_range(0, 10, 0.1) var wave_speed: float = 3.0
 ## FABRIK 迭代次數：越多越準；1 次會有「黏黏的」感覺
 @export_range(1, 10, 1) var iterations: int = 4
+## 抓取角度（抓最近的食物才有用）：只抓伸出方向左右各幾度以內的食物。越大越好抓，複雜度也越高
+@export_range(10, 90, 1, "radians_as_degrees") var grab_angle: float = deg_to_rad(45.0)
 
 @export_group("外觀")
 ## 顏色：從根部（左）到末端（右）的漸層。只放一個顏色就是單色

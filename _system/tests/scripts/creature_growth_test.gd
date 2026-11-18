@@ -267,6 +267,19 @@ func _test_complexity() -> void:
 	_expect(grown.legs.size() > start.legs.size() and grown.body.segment_count > start.body.segment_count, "② 蜈蚣長大：先加節、加腳（%d → %d 組腳）" % [start.legs.size(), grown.legs.size()])
 	_expect(grown.body.spacing > start.body.spacing, "② 蜈蚣到上限後改成整隻放大（間距 %.1f → %.1f）" % [start.body.spacing, grown.body.spacing])
 
+	# 會抓食物的觸手：抓取角度越大越貴（90 度每條多 points_per_grab_angle 點），其他行為不算角度
+	var arm: CreatureDesign = _example("snake")
+	var grabber := TentacleDesign.new()
+	grabber.side = CreaturePart.Side.BOTH
+	arm.tentacles.append(grabber)
+	var waving: int = _stats(arm).complexity
+	grabber.behavior = Tentacle.Behavior.GRAB_FOOD
+	grabber.grab_angle = deg_to_rad(90.0)
+	var wide: int = _stats(arm).complexity
+	grabber.grab_angle = deg_to_rad(45.0)
+	var narrow: int = _stats(arm).complexity
+	_expect(wide - waving == roundi(_balance.points_per_grab_angle * 2) and narrow - waving == roundi(_balance.points_per_grab_angle), "抓食物的觸手（兩邊）：90 度多 %d 點、45 度多 %d 點；不抓的不算角度" % [wide - waving, narrow - waving])
+
 	var heavy: CreatureDesign = _example("centipede")
 	heavy.body.segment_count = 60
 	var heavy_start: int = _stats(heavy).complexity

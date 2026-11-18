@@ -367,7 +367,7 @@ func _test_tentacle() -> void:
 	tentacle.behavior = Tentacle.Behavior.GRAB_FOOD
 	tentacle.set_process(true)
 	var food: Node2D = FOOD_SCRIPT.new()
-	food.position = tentacle._root(0.0) + Vector2(40, 40)
+	food.position = tentacle._root(0.0) + Vector2.from_angle(tentacle._rest_angle(0.0)) * 40.0  # 在觸手伸出的方向（抓取角度裡）
 	add_child(food)
 	var eaten: Array[Node] = []
 	creature.ate.connect(func(node: Node) -> void: eaten.append(node))
@@ -377,6 +377,29 @@ func _test_tentacle() -> void:
 			break
 	_expect(eaten == [food], "觸手抓到食物，發出 ate 訊號")
 	_expect(creature.level == 1, "吃到食物後長大（等級 %d）" % creature.level)
+
+	# 抓取角度：只抓伸出方向左右各 grab_angle 以內的
+	creature.set_process(false)  # 身體停住，伸出方向才不會變
+	var rest: float = tentacle._rest_angle(0.0)
+	var root: Vector2 = tentacle._root(0.0)
+	tentacle.grab_angle = deg_to_rad(45.0)
+	var behind: Node2D = FOOD_SCRIPT.new()
+	behind.position = root + Vector2.from_angle(rest + PI) * 40.0  # 正後面
+	add_child(behind)
+	var side_food: Node2D = FOOD_SCRIPT.new()
+	side_food.position = root + Vector2.from_angle(rest + deg_to_rad(70.0)) * 40.0  # 偏 70 度
+	add_child(side_food)
+	eaten.clear()
+	for i: int in 40:
+		await get_tree().process_frame
+	_expect(eaten.is_empty(), "抓取角度 45 度：正後面、偏 70 度的食物都不抓")
+	tentacle.grab_angle = deg_to_rad(90.0)
+	for i: int in 60:
+		await get_tree().process_frame
+		if not eaten.is_empty():
+			break
+	_expect(eaten == [side_food], "抓取角度開到 90 度：偏 70 度的抓得到，正後面的還是不抓")
+	behind.queue_free()
 	await _free(creature)
 
 

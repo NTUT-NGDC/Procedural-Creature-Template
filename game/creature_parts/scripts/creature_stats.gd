@@ -82,6 +82,8 @@ static func complexity_of(shape: CreatureDesign, balance: CreatureBalance, with_
 	points += count_feet(shape) * balance.points_per_foot
 	for tentacle: TentacleDesign in shape.tentacles:
 		points += tentacle.segment_count * _copies(tentacle.side) * balance.points_per_tentacle_segment
+		if tentacle.behavior == Tentacle.Behavior.GRAB_FOOD:  # 會抓食物的觸手：抓取角度越大越貴（90 度是 points_per_grab_angle 點）
+			points += roundi(tentacle.grab_angle / (PI / 2.0) * balance.points_per_grab_angle * _copies(tentacle.side))
 	for eyes: EyesDesign in shape.eyes:
 		points += eyes.count * balance.points_per_eye
 	if with_ornaments:

@@ -93,6 +93,8 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(0, 50, 1) var points_per_foot: int = 6
 ## 觸手每一節幾點（「兩邊」算 2 條）
 @export_range(0, 20, 1) var points_per_tentacle_segment: int = 1
+## 會抓食物的觸手，抓取角度開到最大（左右各 90 度）每條多幾點；角度小的照比例少（四捨五入）
+@export_range(0, 20, 0.5) var points_per_grab_angle: float = 2.0
 ## 每顆眼睛幾點
 @export_range(0, 20, 1) var points_per_eye: int = 1
 ## 每個掛件幾點（「兩邊」算 2 個）
@@ -113,8 +115,9 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(0, 20, 1) var food_per_level: int = 2
 ## 一次最多掉幾個飼料（太多網頁版會卡）
 @export_range(1, 200, 1) var max_drop_food: int = 30
-## 頭碰頭時：兩隻都朝對方衝超過這個速度（像素／秒）才算正面對撞、兩隻都死；不然只有衝過去的那隻死
-@export_range(0, 500, 5) var head_on_speed: float = 30.0
+## 撞人的角度：頭朝的方向左右各幾度以內碰到別人，才算撞人（撞人的死）；頭的側面、後面擦到不算。
+## 兩隻都用這個角度碰到對方（正面對撞）就兩隻都死
+@export_range(10, 90, 1, "radians_as_degrees") var ram_angle: float = deg_to_rad(45.0)
 ## 死掉重生之後，幾秒內撞到別人、被別人撞都沒事
 @export_range(0, 10, 0.1) var respawn_invincible: float = 2.0
 

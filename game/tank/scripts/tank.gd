@@ -297,32 +297,23 @@ func get_creatures() -> Array[Creature]:
 # ---------------------------------------------------------------- 碰撞（裁判）
 
 
-## 每一對生物：A 的頭撞到 B（頭或身體）→ A 死掉。
-## 兩隻的頭碰在一起：看誰衝向對方（TankRules.head_on_rammers），正面對撞就兩隻都死。
+## 每一對生物：A 用頭的前方撞到 B（頭或身體，TankRules.rams）→ A 死掉。兩隻互相撞到（正面對撞）就兩隻都死。
 ## 先全部檢查完再一起處理，同一幀互撞的兩隻才會都算到
 func _judge_creatures() -> void:
 	var creatures: Array[Creature] = get_creatures()
 	var rects: Dictionary = {}  # 每隻生物佔的範圍，先算好
 	for creature: Creature in creatures:
 		rects[creature] = TankRules.body_rect(creature)
-	var touching: Dictionary = {}  # A 的頭碰到誰 → B
+	var crashed: Dictionary = {}  # 撞人的 A → 被撞的 B
 	for a: Creature in creatures:
 		for b: Creature in creatures:
 			if a == b or a.is_invincible() or b.is_invincible():
 				continue
-			if not (rects[b] as Rect2).has_point(a.global_position):
-				continue  # A 的頭離 B 很遠：不可能碰到
-			if TankRules.touches(a, b):
-				touching[a] = b
+			if not (rects[b] as Rect2).grow(a.head_radius).has_point(a.global_position):
+				continue  # A 的頭離 B 很遠：不可能碰到（要加上 A 的頭半徑，不然很大的頭壓到別人也會被跳過）
+			if TankRules.rams(a, b, a.get_balance()):
+				crashed[a] = b
 				break
-	var crashed: Dictionary = {}  # 撞人的 → 被撞的
-	for a: Creature in touching:
-		var b: Creature = touching[a]
-		if touching.get(b) == a:  # 兩隻互相碰到：頭碰頭，看誰衝向對方
-			for rammer: Creature in TankRules.head_on_rammers(a, b, a.get_balance()):
-				crashed[rammer] = b if rammer == a else a
-		else:
-			crashed[a] = b
 	for a: Creature in crashed:
 		_kill(a, crashed[a])
 

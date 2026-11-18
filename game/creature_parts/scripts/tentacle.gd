@@ -53,7 +53,7 @@ const FLOW_PUSH: float = 2.0
 		queue_redraw()
 
 @export_group("動作")
-## 行為：往後拖（被身體拖著走、轉彎時會甩）、波浪擺動、指向滑鼠、抓最近的食物（伸得到就抓來吃）
+## 行為：往後拖（被身體拖著走、轉彎時會甩）、波浪擺動、指向滑鼠、抓最近的食物（抓取角度裡伸得到就抓來吃，沒東西抓時波浪擺動）
 @export_enum("往後拖", "波浪擺動", "指向滑鼠", "抓最近的食物") var behavior: int = Behavior.DRAG
 ## 擺動幅度（像素）：觸手左右晃動的大小，0 是不晃
 @export_range(0, 100, 1) var wave_amplitude: float = 15.0
@@ -61,6 +61,11 @@ const FLOW_PUSH: float = 2.0
 @export_range(0, 10, 0.1) var wave_speed: float = 3.0
 ## FABRIK 迭代次數：越多越準；1 次會有「黏黏的」感覺
 @export_range(1, 10, 1) var iterations: int = 4
+## 抓取角度（抓最近的食物才有用）：只抓伸出方向左右各幾度以內的食物。越大越好抓，複雜度也越高
+@export_range(10, 90, 1, "radians_as_degrees") var grab_angle: float = deg_to_rad(45.0):
+	set(value):
+		grab_angle = value
+		queue_redraw()
 
 @export_group("外觀")
 ## 顏色：從根部（左）到末端（右）的漸層。只放一個顏色就是單色
@@ -89,6 +94,8 @@ var _chains: Array[PackedVector2Array] = []
 var _targets: PackedVector2Array = []
 ## 每一條觸手要不要畫目標十字（骨架顯示用）
 var _has_target: Array[bool] = []
+## 這一條觸手這一幀找到的食物（_find_target() 找的，_try_eat() 直接用，不用再找一次）
+var _grab_food: Node2D = null
 ## 擺動用的時間
 var _time: float = 0.0
 
@@ -170,31 +177,36 @@ func _find_target(side_sign: float) -> Variant:
 		Behavior.POINT_MOUSE:
 			return get_global_mouse_position() + sway * 0.3
 		Behavior.GRAB_FOOD:
-			var food: Node2D = _nearest_food(base)
+			var food: Node2D = _nearest_food(base, rest_angle)
+			_grab_food = food
 			if food != null:
 				return food.global_position
+			return base + Vector2.from_angle(rest_angle) * length * 0.8 + sway * 2.0  # 沒東西抓：波浪擺動，像在找東西
 	return null
 
 
-## 找觸手伸得到的最近食物（食物要在 "food" 群組裡）
-func _nearest_food(base: Vector2) -> Node2D:
+## 找觸手伸得到的最近食物（食物要在 "food" 群組裡）：距離在觸手長度以內、
+## 方向在伸出方向（rest_angle）左右各 grab_angle 以內
+func _nearest_food(base: Vector2, rest_angle: float) -> Node2D:
 	var nearest: Node2D = null
 	for node: Node in get_tree().get_nodes_in_group("food"):
 		var food: Node2D = node as Node2D
 		if food == null or base.distance_to(food.global_position) > length:
 			continue
+		if absf(angle_difference(rest_angle, base.angle_to_point(food.global_position))) > grab_angle:
+			continue  # 不在抓取角度裡（例如在身體後面）
 		if nearest == null or base.distance_to(food.global_position) < base.distance_to(nearest.global_position):
 			nearest = food
 	return nearest
 
 
-## 末端碰到食物就吃掉
+## 末端碰到食物就吃掉（食物是 _find_target() 剛找到的那個）
 func _try_eat(tip: Vector2) -> void:
 	var creature: Creature = get_creature()
 	if creature != null and creature.puppet:
 		return  # 連線的客戶端：只伸過去，吃不吃得到由主機決定
-	var food: Node2D = _nearest_food(_chains[0][0] if not _chains.is_empty() else tip)
-	if creature != null and food != null and tip.distance_to(food.global_position) < tip_width + 8.0:
+	var food: Node2D = _grab_food
+	if creature != null and food != null and is_instance_valid(food) and food.is_in_group("food") and tip.distance_to(food.global_position) < tip_width + 8.0:
 		food.remove_from_group("food")  # 避免同一幀被另一條觸手再吃一次
 		creature.eat(food)
 
@@ -293,12 +305,29 @@ func _draw_suckers(points: PackedVector2Array, side_sign: float) -> void:
 		FastDraw.circle(self, points[i] + across * width * 0.45, width * 0.35, sucker_color)
 
 
+## 抓得到的範圍：從根部、伸出方向左右各 grab_angle、半徑是觸手長度的扇形
+func _draw_grab_range(side_sign: float) -> void:
+	var base: Vector2 = _root(side_sign)
+	var angle: float = _rest_angle(side_sign)
+	var faint: Color = CreatureDebug.BONE_COLOR
+	faint.a = 0.35
+	var arc := PackedVector2Array([to_local(base)])
+	for i: int in 13:
+		arc.append(to_local(base + Vector2.from_angle(angle - grab_angle + grab_angle * 2.0 * i / 12.0) * length))
+	arc.append(to_local(base))
+	draw_polyline(arc, faint, 1.0)
+
+
 func _gradient_color(t: float) -> Color:
 	return color_gradient.sample(t) if color_gradient != null else Color("#e58fb0")
 
 
-## 骨架（F1）：關節線、關節點；伸向目標時畫目標十字
+## 骨架（F1）：關節線、關節點；伸向目標時畫目標十字；抓最近的食物的觸手畫出抓得到的範圍（扇形）
 func _draw_bones() -> void:
+	if behavior == Behavior.GRAB_FOOD:
+		var signs: PackedFloat32Array = side_signs(side)
+		for k: int in signs.size():
+			_draw_grab_range(signs[k])
 	for k: int in _chains.size():
 		var points: PackedVector2Array = []
 		for joint: Vector2 in _chains[k]:

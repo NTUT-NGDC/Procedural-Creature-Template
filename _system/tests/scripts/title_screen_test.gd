@@ -28,6 +28,7 @@ var _failures: int = 0
 
 
 func _ready() -> void:
+	_pick(SNAKE_DESIGN)  # 這台電腦的 my_creature 可能有生物：先固定選蛇，測試才不會因電腦而異
 	await _test_problem("player_design", null, "還沒有設定玩家生物")
 	await _test_problem("tank_scene", "res://my_creature/不存在的場景.tscn", "找不到生態缸場景")
 	await _test_problem("tank_scene", "res://lesson/card_draw/data/card_deck.tres", "找不到生態缸場景")
@@ -274,6 +275,13 @@ func _test_full_flow() -> void:
 		_expect(not get_tree().paused and WaterFlow.strength == 0.0, "第 %d 輪：回到標題時已解除暫停、水流歸零" % round_number)
 
 
+## 當作這次開遊戲在標題畫面選過 path（換場景後的標題畫面一開始就選它）
+func _pick(path: String) -> void:
+	var script: GDScript = load("res://game/title_screen/scripts/title_screen.gd")
+	script.set("chosen_path", path)
+	script.set("has_chosen", true)
+
+
 ## 在標題畫面按「＞」，換到名稱是 creature_name 的生物（找不到的話測試失敗）
 func _choose_by_name(title: Node, creature_name: String) -> void:
 	for i: int in 30:
@@ -288,8 +296,10 @@ func _test_choose() -> void:
 	print("--- 標題畫面換生物 ---")
 	var script: GDScript = load("res://game/title_screen/scripts/title_screen.gd")
 	script.set("chosen_path", "")
+	script.set("has_chosen", false)
 	var snake: CreatureDesign = load(SNAKE_DESIGN)
 	var spider_name: String = (load("res://example/creatures/spider/design.tres") as CreatureDesign).creature_name
+	var mine: Array[Dictionary] = CreatureDesign.list_designs({"res://my_creature/": "我的生物"})
 	var title: Control = TITLE_SCENE.instantiate()
 	add_child(title)
 	await get_tree().process_frame
@@ -297,7 +307,13 @@ func _test_choose() -> void:
 	var choice_name: Label = title.get_node("%ChoiceName")
 	var choices: Array = title.get("_choices")
 	_expect(row.visible and choices.size() >= 8, "看得到「＜　生物名稱　＞」，可以選 %d 隻" % choices.size())
-	_expect(title.get("player_design") == snake and choice_name.text == snake.creature_name and "範例生物" in (title.get_node("%ChoiceGroup") as Label).text, "一開始選的是檢查器設定的蛇")
+	_expect(choices[0].path == SNAKE_DESIGN and choices.filter(func(item: Dictionary) -> bool: return item.path == SNAKE_DESIGN).size() == 1, "檢查器設定的「玩家生物」（蛇）排第一個，不會重複出現")
+	if mine.is_empty():
+		_expect(title.get("player_design") == snake and "1／" in (title.get_node("%ChoiceGroup") as Label).text, "my_creature 沒有生物：一開始選玩家生物（蛇，1／%d）" % choices.size())
+	else:
+		_expect(script.get("chosen_path") == mine[0].path, "玩家生物還是範例、my_creature 有生物：一開始選 my_creature 的第一隻（%s）" % mine[0].name)
+	await _choose_by_name(title, snake.creature_name)
+	_expect(title.get("player_design") == snake and "範例生物　1／" in (title.get_node("%ChoiceGroup") as Label).text, "選到蛇：寫「範例生物　1／%d」" % choices.size())
 	(title.get_node("%NextButton") as Button).pressed.emit()
 	var background: Creature = title.get_node("BackgroundCreature")
 	_expect(title.get("player_design") != snake and choice_name.text != snake.creature_name, "按「＞」換成下一隻")
@@ -334,7 +350,7 @@ func _test_choose() -> void:
 	_expect(not (title.get_node("%ChooseRow") as Control).visible, "沒設定玩家生物：看不到選擇那排（照原本的提示設定）")
 	title.queue_free()
 	await get_tree().process_frame
-	script.set("chosen_path", "")  # 後面的測試用回蛇
+	_pick(SNAKE_DESIGN)  # 後面的測試用回蛇
 
 
 ## 連線對戰的換場景流程（接在 _test_full_flow 後面，目前的場景是標題畫面）：

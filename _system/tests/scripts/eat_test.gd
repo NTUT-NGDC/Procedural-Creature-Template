@@ -2,7 +2,8 @@ extends Node
 ## 生態缸規則（像 Slither）的自動測試：
 ## 1. 撞身體：頭撞到別人的身體，撞人的死掉（玩家回 0 級、換地方重生、無敵一下；整隻散成大顆飼料，一下子不能吃），被撞的沒事
 ## 2. 擋路：別人撞到你的身體，牠死掉、你沒事，「撞倒幾隻」+1；不管誰大，大的撞到小的也是大的死
-## 3. 頭碰頭：從側面撞過來的死、被撞的沒事；正面對撞兩隻都死
+## 3. 撞人要用頭的前方（左右各 ram_angle）：從側面撞過來的死、被撞的沒事；正面對撞兩隻都死；
+##    頭的側面擦到別人不算；很大的頭（水母）被人從側面撞，只有撞人的死
 ## 4. 無敵：重生無敵的時候，撞到別人、被別人撞都沒事
 ## 5. 加速：比較快、消耗飼料、從尾巴掉出小顆飼料；這一級的用完就掉一級繼續噴，噴到 0 級、一個都不剩才停
 ## 5-1. 操作（像 Slither）：滑鼠在頭上也一直往前衝；按任何鍵、滑鼠左鍵都加速；Esc、F1 不算；用方向鍵時方向鍵不算；工坊的生物不能加速
@@ -100,17 +101,63 @@ func _test_head_on() -> void:
 	var balance: CreatureBalance = player.get_balance()
 	var a: Creature = _creature(0)  # 只測規則，不放進缸裡（放進去馬上就撞了）
 	var b: Creature = _creature(0)
-	a.position = Vector2(400, 400)
-	b.position = Vector2(420, 400)
 	add_child(a)
 	add_child(b)
-	a.velocity = Vector2(balance.head_on_speed + 10.0, 0)
-	b.velocity = Vector2(-(balance.head_on_speed - 10.0), 0)
-	_expect(TankRules.head_on_rammers(a, b, balance) == [a], "對方衝得不夠快（%.0f）：只有衝過去的算撞人" % (balance.head_on_speed - 10.0))
-	b.velocity = Vector2(-(balance.head_on_speed + 10.0), 0)
-	_expect(TankRules.head_on_rammers(a, b, balance).size() == 2, "兩隻都衝超過 %.0f：兩隻都算" % balance.head_on_speed)
+	await _frames(1)
+	var reach: float = a.head_radius + b.head_radius - 2.0  # 剛好碰到的距離
+	for case: Array in [[0.0, true, "正前方"], [40.0, true, "偏 40 度"], [50.0, false, "偏 50 度"], [90.0, false, "正側面"], [180.0, false, "正後面"]]:
+		var off: float = deg_to_rad(case[0])
+		_place(a, Vector2(400, 400), 0.0)  # A 朝右
+		_place(b, a.global_position + Vector2.from_angle(off) * reach, off + PI)  # B 的頭在 A 的「偏 off 度」方向，身體往外拖（只碰到頭）
+		_expect(TankRules.touches(a, b) and TankRules.rams(a, b, balance) == case[1], "B 在 A 的%s：%s（撞人的角度左右各 %.0f 度）" % [case[2], "算撞人" if case[1] else "擦到不算", rad_to_deg(balance.ram_angle)])
 	a.queue_free()
 	b.queue_free()
+	await _free(tank)
+
+	# 水母（頭很大）：被人從側面撞，只有撞人的死；水母的頭側面擦到別人，兩隻都沒事
+	tank = await _spawn()
+	_place(tank.player, Vector2(2400, 1300), 0.0)
+	var jelly := Creature.new()
+	jelly.design = load("res://example/creatures/jellyfish/design.tres")
+	jelly.control_mode = Creature.Mode.WANDER
+	jelly.level = 10
+	tank.add_creature(jelly)
+	jelly.set_process(false)
+	var rammer: Creature = await _add(tank, 0, Vector2(400, 400))
+	await _frames(1)
+	jelly.invincible_time = 0.0
+	rammer.invincible_time = 0.0
+	_place(jelly, Vector2(1200, 700), 0.0)  # 水母朝右
+	_place(rammer, jelly.global_position + Vector2(0, -(jelly.head_radius + rammer.head_radius - 2.0)), PI / 2.0)  # 從上面往下撞水母的頭
+	await _frames(2)
+	_expect(_dead(rammer) and not _dead(jelly), "別人從側面撞上水母的頭：只有撞人的死（以前常常同歸於盡）")
+	var passer: Creature = await _add(tank, 0, Vector2(400, 400))
+	await _frames(1)
+	passer.invincible_time = 0.0
+	_place(passer, jelly.global_position + Vector2(0, jelly.head_radius + passer.head_radius - 2.0), 0.0)  # 在水母下面、跟水母同方向游
+	await _frames(2)
+	_expect(not _dead(passer) and not _dead(jelly), "水母的頭側面擦到別人、別人也是側面：兩隻都沒事")
+	await _free(tank)
+
+	# 很大的頭撞到小的：大的頭中心離小的身體很遠，也要算到（之前會被「快速排除」跳過，變成小的死）
+	tank = await _spawn()
+	_place(tank.player, Vector2(2400, 1300), 0.0)
+	var giant := Creature.new()
+	giant.design = load("res://example/creatures/jellyfish/design.tres")
+	giant.control_mode = Creature.Mode.WANDER
+	giant.level = 180
+	giant.position = Vector2(1200, 700)
+	tank.add_creature(giant)
+	giant.set_process(false)
+	var small: Creature = await _add(tank, 0, Vector2(400, 400))
+	await _frames(1)
+	giant.invincible_time = 0.0
+	small.invincible_time = 0.0
+	_place(giant, Vector2(1200, 700), 0.0)
+	_place(small, giant.global_position + Vector2(giant.head_radius * 0.8, 0), -PI / 2.0)  # 小的在大的頭的邊緣裡，往上游（沒有衝向大的）
+	_expect(TankRules.touches(giant, small) and TankRules.touches(small, giant), "頭半徑 %.0f 的大隻壓到小的：兩邊都算碰到" % giant.head_radius)
+	await _frames(2)
+	_expect(_dead(giant) and not _dead(small), "大的用前方撞上小的、小的只是被壓到：死的是大的")
 	await _free(tank)
 
 
