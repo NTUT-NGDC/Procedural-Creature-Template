@@ -527,8 +527,7 @@ func _update_hud() -> void:
 		return
 	var balance: CreatureBalance = player.get_balance()
 	var stars: Callable = func(ability: String) -> String:
-		var count: int = stats.stars(ability, balance.max_stars)
-		return "★".repeat(count) + "☆".repeat(balance.max_stars - count)
+		return stats.ability_text(ability, balance.max_stars)
 	best_level = maxi(best_level, player.level)
 	var status: String = "等級 %d　再吃 %d 個升級　最高 %d 級　撞倒 %d 隻" % [player.level, stats.level_cost - player.food_progress, best_level, kills]
 	var detail: String = "速度 %s　轉向 %s　抓取 %s　視野 %s\n%s：加速（消耗飼料，用完會掉級）" % [

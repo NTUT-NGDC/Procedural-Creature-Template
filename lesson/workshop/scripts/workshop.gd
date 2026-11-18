@@ -363,8 +363,7 @@ func _complexity_with(field: String, part: PartDesign) -> int:
 
 
 func _stars(stats: CreatureStats, ability: String, balance: CreatureBalance) -> String:
-	var count: int = stats.stars(ability, balance.max_stars)
-	return "★".repeat(count) + "☆".repeat(balance.max_stars - count)
+	return stats.ability_text(ability, balance.max_stars)
 
 
 func _on_level_changed(value: float) -> void:

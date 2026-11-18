@@ -204,6 +204,15 @@ func _test_stats() -> void:
 	_expect(stats.grab == 0.0 and _stats(octopus).grab > 0.0, "沒觸手抓取 0；章魚抓取 %.0f" % _stats(octopus).grab)
 	octopus.tentacles[0].length = 400.0
 	_expect(_stats(octopus).grab == _balance.max_grab, "觸手再長，抓取最多 %.0f" % _balance.max_grab)
+	_expect(stats.ability_text("grab", _balance.max_stars) == "沒有觸手", "沒觸手：抓取寫「沒有觸手」")
+	var centipede: CreatureStats = _stats(_example("centipede"))
+	_expect(centipede.grab == 0.0 and centipede.ability_text("grab", _balance.max_stars) == "波浪擺動", "蜈蚣的觸角不抓食物：抓取 0、寫「%s」不是星星" % centipede.ability_text("grab", _balance.max_stars))
+	var pointer: CreatureDesign = _example("octopus")
+	for arm: TentacleDesign in pointer.tentacles:
+		arm.behavior = Tentacle.Behavior.POINT_MOUSE
+	_expect(_stats(pointer).grab == 0.0 and _stats(pointer).ability_text("grab", _balance.max_stars) == "指向滑鼠", "章魚觸手改成指向滑鼠：抓取 0、寫「指向滑鼠」")
+	pointer.tentacles[0].behavior = Tentacle.Behavior.GRAB_FOOD
+	_expect(_stats(pointer).grab > 0.0 and _stats(pointer).ability_text("grab", _balance.max_stars).begins_with("★"), "有一條改回抓食物：又顯示星星")
 
 	var more_eyes: CreatureDesign = _example("spider")
 	more_eyes.eyes[0].count = 1
@@ -338,8 +347,7 @@ func _stats(design: CreatureDesign, level: int = 0) -> CreatureStats:
 
 
 func _star_text(stats: CreatureStats, ability: String) -> String:
-	var count: int = stats.stars(ability, _balance.max_stars)
-	return "★".repeat(count) + "☆".repeat(_balance.max_stars - count)
+	return stats.ability_text(ability, _balance.max_stars)
 
 
 func _expect(ok: bool, message: String) -> void:

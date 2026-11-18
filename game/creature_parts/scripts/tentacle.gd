@@ -10,6 +10,8 @@ extends CreaturePart
 
 ## 行為的編號，跟「行為」選單的順序一樣
 enum Behavior { DRAG, WAVE, POINT_MOUSE, GRAB_FOOD }
+## 每種行為的中文名稱（跟 behavior 的下拉選單一樣，順序對應 Behavior）
+const BEHAVIOR_NAMES: Array[String] = ["往後拖", "波浪擺動", "指向滑鼠", "抓最近的食物"]
 ## 水流推觸手的力道（往後拖的時候）
 const FLOW_PUSH: float = 2.0
 

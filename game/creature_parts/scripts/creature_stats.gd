@@ -13,8 +13,10 @@ var thrust: float = 0.0
 var speed: float = 0.0
 ## 轉向（弧度／秒）
 var turn: float = 0.0
-## 抓取範圍（像素）：最長的觸手
+## 抓取範圍（像素）：會抓食物的觸手裡最長的那條
 var grab: float = 0.0
+## 沒有會抓食物的觸手時，「抓取」不顯示星星、改寫這個：最長那條觸手在做什麼（例如「指向滑鼠」），沒有觸手是「沒有觸手」
+var grab_trait: String = ""
 ## 視野（像素）
 var sight: float = 0.0
 ## 升一級要吃幾個
@@ -49,10 +51,16 @@ static func compute(shape: CreatureDesign, balance: CreatureBalance) -> Creature
 		longest_tentacle = maxf(longest_tentacle, tentacle.length)
 	var length: float = (body.segment_count - 1) * body.spacing + longest_tentacle * balance.turn_tentacle_ratio
 	stats.turn = clampf(balance.base_turn / (1.0 + length * balance.turn_per_length), balance.min_turn, balance.max_turn)
-	# 抓取：最長的觸手
+	# 抓取：會抓食物的觸手裡最長的那條（往後拖、指向滑鼠的觸手不會撿飼料，不算）
+	var longest: TentacleDesign = null
 	for tentacle: TentacleDesign in shape.tentacles:
-		stats.grab = maxf(stats.grab, tentacle.length)
+		if tentacle.behavior == Tentacle.Behavior.GRAB_FOOD:
+			stats.grab = maxf(stats.grab, tentacle.length)
+		if longest == null or tentacle.length > longest.length:
+			longest = tentacle
 	stats.grab = minf(stats.grab, balance.max_grab)
+	if stats.grab <= 0.0:
+		stats.grab_trait = "沒有觸手" if longest == null else Tentacle.BEHAVIOR_NAMES[clampi(longest.behavior, 0, Tentacle.BEHAVIOR_NAMES.size() - 1)]
 	# 視野：眼睛越多、越大，看得越遠
 	var eye_power: float = 0.0
 	for eyes: EyesDesign in shape.eyes:
@@ -103,6 +111,14 @@ static func count_feet(shape: CreatureDesign) -> int:
 	for leg: LegDesign in shape.legs:
 		feet += _copies(leg.side)
 	return feet
+
+
+## 顯示在畫面上的能力：幾顆星（★★★☆☆）。「抓取」沒有會抓食物的觸手時，改寫觸手在做什麼（grab_trait）
+func ability_text(ability: String, max_stars: int) -> String:
+	if ability == "grab" and grab_trait != "":
+		return grab_trait
+	var count: int = stars(ability, max_stars)
+	return "★".repeat(count) + "☆".repeat(max_stars - count)
 
 
 ## 某種能力（"speed"、"turn"、"grab"、"sight"）幾顆星：1～max_stars，沒有這種能力是 0
