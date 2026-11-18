@@ -12,7 +12,7 @@ extends Node
 ##   godot --headless --path . res://_system/tests/creature_design_test.tscn
 
 const EXAMPLES: String = "res://example/creatures/"
-const NAMES: PackedStringArray = ["snake", "centipede", "octopus", "spider", "jellyfish", "dragon", "doodle", "predator_eel"]
+const NAMES: PackedStringArray = ["snake", "centipede", "octopus", "spider", "jellyfish", "dragon", "doodle", "predator_eel", "sea_angel"]
 ## 設計資料 → 對應的零件節點
 var _pairs: Array = [
 	[BodyDesign, ChainBody],

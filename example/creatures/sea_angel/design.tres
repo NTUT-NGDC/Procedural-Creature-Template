@@ -1,0 +1,102 @@
+[gd_resource type="Resource" script_class="CreatureDesign" format=3]
+
+[ext_resource type="Script" path="res://game/creature_parts/scripts/body_design.gd" id="1_aflal"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/eyes_design.gd" id="2_kbfpk"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/leg_design.gd" id="3_rcoqx"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/ornament_design.gd" id="4_fm081"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/creature_design.gd" id="5_5bmoq"]
+[ext_resource type="Script" path="res://game/creature_parts/scripts/tentacle_design.gd" id="6_rwun5"]
+
+[sub_resource type="Gradient" id="Gradient_aflal"]
+offsets = PackedFloat32Array(0, 0.22, 0.5, 0.72, 0.88, 1)
+colors = PackedColorArray(1, 0.95, 0.9, 0.8, 1, 0.86, 0.45, 0.78, 0.62, 0.8, 1, 0.72, 0.72, 0.85, 1, 0.72, 1, 0.68, 0.42, 0.85, 1, 0.5, 0.25, 0.92)
+
+[sub_resource type="Curve" id="Curve_rje44"]
+_data = [Vector2(0, 0.8), 0.0, 0.0, 0, 0, Vector2(0.25, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_pisy4"]
+script = ExtResource("1_aflal")
+segment_count = 7
+spacing = 9.0
+thickness = 15.0
+width_curve = SubResource("Curve_rje44")
+swim_amplitude = 3.0
+swim_frequency = 2.5
+body_gradient = SubResource("Gradient_aflal")
+outline_color = Color(0.92, 0.97, 1, 0.7)
+outline_width = 1.5
+pattern = 0
+
+[sub_resource type="Resource" id="Resource_7duxx"]
+script = ExtResource("2_kbfpk")
+size = 0.13
+spread = 0.5
+visible = false
+pupil_color = Color(0.15, 0.1, 0.2, 1)
+
+[sub_resource type="Gradient" id="Gradient_kbfpk"]
+colors = PackedColorArray(1, 0.94, 0.68, 0.72, 0.9, 0.96, 1, 0.58)
+
+[sub_resource type="Resource" id="Resource_uqjb3"]
+script = ExtResource("4_fm081")
+attach_segment = 1
+side = 2
+angle = 1.6580627893946132
+shape = 2
+size = 0.9
+color_gradient = SubResource("Gradient_kbfpk")
+on_top = false
+motion = 1
+flap_amplitude = 0.6981317007977318
+flap_speed = 6.0
+
+[sub_resource type="Gradient" id="Gradient_rcoqx"]
+colors = PackedColorArray(1, 0.82, 0.25, 0.85, 1, 0.55, 0.2, 0.85)
+
+[sub_resource type="Resource" id="Resource_cj78s"]
+script = ExtResource("4_fm081")
+attach_segment = 2
+shape = 2
+size = 0.6
+color_gradient = SubResource("Gradient_rcoqx")
+outline = false
+
+[sub_resource type="Gradient" id="Gradient_fm081"]
+colors = PackedColorArray(1, 0.4, 0.2, 0.85, 1, 0.55, 0.25, 0.85)
+
+[sub_resource type="Resource" id="Resource_4sfly"]
+script = ExtResource("4_fm081")
+offset = Vector2(4, 0)
+shape = 1
+size = 0.45
+color_gradient = SubResource("Gradient_fm081")
+outline = false
+
+[sub_resource type="Gradient" id="Gradient_5bmoq"]
+colors = PackedColorArray(0.95, 0.98, 1, 0.82, 0.8, 0.9, 1, 0.7)
+
+[sub_resource type="Resource" id="Resource_bv2ny"]
+script = ExtResource("6_rwun5")
+reach_angle = 0.4363323129985824
+segment_count = 4
+length = 24.0
+base_width = 3.5
+tip_width = 0.5
+behavior = 3
+wave_amplitude = 5.0
+color_gradient = SubResource("Gradient_5bmoq")
+suckers = false
+
+[resource]
+script = ExtResource("5_5bmoq")
+creature_name = "海天使"
+growth_mode = 2
+thicken_ratio = 0.45
+spray_color = Color(1, 0.68, 0.55, 1)
+spray_shape = 2
+spray_glow_color = Color(1, 0.75, 0.6, 0.25)
+body = SubResource("Resource_pisy4")
+tentacles = Array[ExtResource("6_rwun5")]([SubResource("Resource_bv2ny")])
+eyes = Array[ExtResource("2_kbfpk")]([SubResource("Resource_7duxx")])
+ornaments = Array[ExtResource("4_fm081")]([SubResource("Resource_uqjb3"), SubResource("Resource_cj78s"), SubResource("Resource_4sfly")])

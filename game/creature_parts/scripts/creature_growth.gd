@@ -34,7 +34,9 @@ static func shape_at(design: CreatureDesign, level: int, balance: CreatureBalanc
 	if shape.growth_mode == CreatureDesign.Growth.SCALE:
 		scale_all(shape, sqrt(target / start))  # 面積跟長度的平方成正比，所以開根號
 	else:
-		shape.body.thickness *= pow(target / start, shape.thicken_ratio)  # 變粗的那幾成：體型跟粗細成正比，粗細乘 (target ÷ start) 的 thicken_ratio 次方
+		var thicken: float = pow(target / start, shape.thicken_ratio)  # 變粗的那幾成：體型跟粗細成正比，粗細乘 (target ÷ start) 的 thicken_ratio 次方
+		shape.body.thickness *= thicken
+		scale_parts(shape, thicken)  # 零件（掛件、觸手、腳）跟著身體變粗的比例一起變大
 		grow_longer(shape, target, balance.max_grow_segments)  # 剩下的加節數補上
 		if shape.growth_mode == CreatureDesign.Growth.LONGER_WITH_LEGS:
 			add_legs(shape, design.body.segment_count)
@@ -43,11 +45,18 @@ static func shape_at(design: CreatureDesign, level: int, balance: CreatureBalanc
 	return shape
 
 
-## ① 等比放大：每個零件的長度類欄位都乘上 factor
+## ① 等比放大：身體和每個零件的長度類欄位都乘上 factor
 static func scale_all(shape: CreatureDesign, factor: float) -> void:
 	if is_equal_approx(factor, 1.0):
 		return
 	shape.body.scale_lengths(factor)
+	scale_parts(shape, factor)
+
+
+## 零件（掛件、觸手、腳、眼睛）的長度類欄位都乘上 factor（身體不動）
+static func scale_parts(shape: CreatureDesign, factor: float) -> void:
+	if is_equal_approx(factor, 1.0):
+		return
 	for part: PartDesign in shape.all_parts():
 		part.scale_lengths(factor)
 
@@ -77,6 +86,7 @@ static func reach_size(shape: CreatureDesign, target: float) -> void:
 		scale_all(shape, sqrt(target / size))
 	else:
 		shape.body.thickness *= target / size
+		scale_parts(shape, target / size)  # 零件跟著身體粗細一起微調
 
 
 ## ② 長出腳：從最後一組腳開始，往尾巴每隔 legs_every 節複製一組，A、B 組輪流。

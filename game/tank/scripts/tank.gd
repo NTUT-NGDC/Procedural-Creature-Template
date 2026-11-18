@@ -60,6 +60,7 @@ const MAX_PLANTS_WARNING: String = "水草、海葵太多了（%d 個，上限 %
 	preload("res://example/creatures/jellyfish/design.tres"),
 	preload("res://example/creatures/octopus/design.tres"),
 	preload("res://example/creatures/predator_eel/design.tres"),
+	preload("res://example/creatures/sea_angel/design.tres"),
 	preload("res://example/creatures/snake/design.tres"),
 	preload("res://example/creatures/spider/design.tres"),
 ]

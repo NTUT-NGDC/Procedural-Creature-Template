@@ -2,7 +2,8 @@ extends Node
 ## 長大方式、能力計算、平衡資料的自動測試：
 ## 1. 三種長大方式：每升一級體型增加一樣多（升 1～10 級都比對）
 ## 2. 一開始的體型夾在上下限之間：太大的縮小、太小的放大
-## 3. ① 等比放大節數不變、長度變大；② 每隔幾節長一對腳、A／B 組交錯；③ 腳數不變
+## 3. ① 等比放大節數不變、長度變大；② 每隔幾節長一對腳、A／B 組交錯；③ 腳數不變；
+##    ②③ 身體變粗時，掛件、觸手、腳跟著變粗的比例變大（變粗佔 0 的不變）
 ## 4. 節數到上限後改成等比放大，體型還是對的
 ## 5. shape_at() 不會改到原本的設計檔
 ## 6. 生物升級：身體照長大方式變；長出新腳要重長時，身體維持原本的姿勢
@@ -24,6 +25,7 @@ func _ready() -> void:
 	_test_equal_growth()
 	_test_start_size()
 	_test_modes()
+	_test_parts_follow_thickness()
 	_test_segment_cap()
 	_test_original_untouched()
 	await _test_creature_grow()
@@ -91,7 +93,8 @@ func _test_modes() -> void:
 	var original_gap: int = design.body.segment_count - 1 - design.legs[-1].attach_segment
 	ok = ok and legged.body.segment_count - 1 - legged.legs[-1].attach_segment >= original_gap
 	_expect(ok, "② 變長＋長出腳：腳 %d → %d 組，每隔 3 節一組、A／B 交錯、離尾巴的距離跟原本一樣" % [design.legs.size(), legged.legs.size()])
-	_expect(is_equal_approx(legged.legs[-1].thigh_length, last.thigh_length), "② 新的腳複製最後一組腳的樣子")
+	var grown_last: LegDesign = legged.legs[design.legs.size() - 1]  # 長大後原本的最後一組（跟著身體粗細微調過）
+	_expect(is_equal_approx(legged.legs[-1].thigh_length, grown_last.thigh_length) and absf(grown_last.thigh_length / last.thigh_length - 1.0) < 0.1, "② 新的腳複製最後一組腳的樣子")
 
 	var no_legs: CreatureDesign = _example("snake")
 	no_legs.growth_mode = CreatureDesign.Growth.LONGER_WITH_LEGS
@@ -229,7 +232,7 @@ func _test_stats() -> void:
 	_expect(costs[2] < costs[0] and costs[0] < costs[1], "成本：③ 只變長 %d < ① 等比放大 %d < ② 變長＋長腳 %d" % [costs[2], costs[0], costs[1]])
 
 	print("  （參考）8 隻範例 0 級的能力：")
-	for example: String in ["snake", "centipede", "octopus", "spider", "jellyfish", "dragon", "doodle", "predator_eel"]:
+	for example: String in ["snake", "centipede", "octopus", "spider", "jellyfish", "dragon", "doodle", "predator_eel", "sea_angel"]:
 		var s: CreatureStats = _stats(_example(example))
 		print("    %-12s 體型 %5.0f　速度 %3.0f %s　轉向 %3.0f° %s　抓取 %3.0f %s　視野 %3.0f %s　升一級吃 %d 個" % [example, s.size,
 			s.speed, _star_text(s, "speed"), rad_to_deg(s.turn), _star_text(s, "turn"), s.grab, _star_text(s, "grab"), s.sight, _star_text(s, "sight"), s.level_cost])
@@ -250,7 +253,7 @@ func _test_complexity() -> void:
 	print("--- 複雜度 ---")
 	var limit: int = _balance.max_complexity
 	print("  （參考）範例的複雜度（上限 %d）：0 級 → 8 級 → 30 級" % limit)
-	for example: String in ["snake", "centipede", "octopus", "spider", "jellyfish", "dragon", "doodle", "predator_eel"]:
+	for example: String in ["snake", "centipede", "octopus", "spider", "jellyfish", "dragon", "doodle", "predator_eel", "sea_angel"]:
 		var design: CreatureDesign = _example(example)
 		print("    %-12s %3d → %3d → %3d" % [example, _stats(design).complexity, _stats(design, 8).complexity, _stats(design, 30).complexity])
 		_expect(_stats(design).complexity <= limit, "%s 0 級在上限內" % example)
@@ -305,6 +308,23 @@ func _test_complexity() -> void:
 
 
 ## 讀一隻範例的設計檔（複製一份，改了不會影響別的測試）
+## ②③ 長大時零件跟著身體變粗的比例變大
+func _test_parts_follow_thickness() -> void:
+	print("--- 變長時零件跟著變粗 ---")
+	var angel: CreatureDesign = _example("sea_angel")
+	var young: CreatureDesign = CreatureGrowth.shape_at(angel, 0, _balance)
+	var grown: CreatureDesign = CreatureGrowth.shape_at(angel, 10, _balance)
+	var thicker: float = grown.body.thickness / young.body.thickness
+	_expect(thicker > 1.05 and grown.body.segment_count > young.body.segment_count, "③ 海天使（變粗佔 0.3）10 級：變長也變粗（粗 %.2f 倍）" % thicker)
+	_expect(is_equal_approx(grown.ornaments[0].size / young.ornaments[0].size, thicker), "翅膀跟著變大一樣的倍數（%.2f 倍）" % (grown.ornaments[0].size / young.ornaments[0].size))
+	_expect(is_equal_approx(grown.tentacles[0].length / young.tentacles[0].length, thicker), "觸手跟著變長一樣的倍數，抓取跟著變好（%.0f → %.0f）" % [young.tentacles[0].length, grown.tentacles[0].length])
+	var dragon: CreatureDesign = _example("dragon")
+	var small: CreatureDesign = CreatureGrowth.shape_at(dragon, 0, _balance)
+	var big: CreatureDesign = CreatureGrowth.shape_at(dragon, 5, _balance)
+	var dragon_thicker: float = big.body.thickness / small.body.thickness
+	_expect(dragon_thicker < 1.1 and is_equal_approx(big.ornaments[0].size / small.ornaments[0].size, dragon_thicker), "② 龍（變粗佔 0）5 級：身體幾乎沒變粗（%.2f 倍），翅膀跟著一樣的倍數" % dragon_thicker)
+
+
 func _example(example: String) -> CreatureDesign:
 	return CreatureDesign.from_data((load(EXAMPLES + example + "/design.tres") as CreatureDesign).to_dict())
 
