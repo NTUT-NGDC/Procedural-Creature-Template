@@ -49,6 +49,7 @@ func _ready() -> void:
 	_test_image_size_hint()
 	_test_color_and_curve()
 	await _test_feed_tab()
+	await _test_hide_eyes()
 	await _test_complexity()
 	await _test_font_size()
 
@@ -422,6 +423,30 @@ func _test_feed_tab() -> void:
 	_expect(sprayed.all(func(food: Node) -> bool: return (food as Food).look == design and not (food as Food).edible and not food.is_in_group("food")), "噴出來的照設計檔畫，只給人看、不能吃")
 	await get_tree().create_timer(_workshop.SPRAY_LIFE).timeout
 	_expect(stage.find_children("*", "Food", false, false).is_empty(), "過幾秒就消失")
+
+
+## 眼睛的「顯示」：關掉時選單上寫「藏起來」，沒有自己的圖就提醒
+func _test_hide_eyes() -> void:
+	print("--- 藏眼睛 ---")
+	var design: CreatureDesign = _workshop.get("design")
+	if design.eyes.is_empty():
+		design.eyes.append(EyesDesign.new())
+		_workshop.call("_rebuild_editors")
+	var list: Dictionary = (_workshop.get("_lists") as Dictionary)["eyes"]
+	var editor: Node = list.editor
+	var row: Node = _row_of(editor, "顯示")
+	_expect(row != null, "眼睛的設定有「顯示」")
+	var check: CheckBox = row.find_children("*", "CheckBox", true, false)[0]
+	check.button_pressed = false
+	await _frames(1)
+	_expect(not design.eyes[list.selected].visible, "取消勾選：設計檔的眼睛藏起來")
+	_expect("藏起來" in (list.selector as OptionButton).get_item_text(list.selected), "選單上寫「藏起來」")
+	var message: Label = _workshop.get("_message")
+	_expect(design.has_own_image() or "沒有自己畫的圖" in message.text, "沒有自己的圖：提醒看起來會沒有眼睛")
+	check.button_pressed = true
+	await _frames(1)
+	_expect(design.eyes[list.selected].visible and not "藏起來" in (list.selector as OptionButton).get_item_text(list.selected), "再勾回來：顯示")
+	_expect(not "沒有自己畫的圖" in message.text, "再勾回來：提醒收掉")
 
 
 ## 編輯區裡名稱是 label_text 的那一排（找不到是 null）

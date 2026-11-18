@@ -31,6 +31,7 @@ func _ready() -> void:
 	await _test_examples_match()
 	_test_round_trip()
 	_test_spray()
+	await _test_hide_parts()
 	await _test_garbage()
 	await _test_apply_in_place()
 	_test_not_saved()
@@ -130,6 +131,48 @@ func _test_spray() -> void:
 	for shape: int in 6:
 		_expect(Food.outline(shape).size() >= 4, "形狀 %d 有輪廓" % shape)
 	_expect(Food.outline(Food.Shape.STAR, 7, 0.3).size() == 14 and Food.outline(Food.Shape.STAR).size() == 10, "星星的角數會變（7 角 14 個點、5 角 10 個點）")
+
+
+## 眼睛、掛件的「顯示」：關掉就不畫（節點 visible 關掉），能力照算；舊的設計檔預設顯示；
+## 眼睛藏起來卻沒有自己的圖，要提醒
+func _test_hide_parts() -> void:
+	print("--- 眼睛、掛件藏起來 ---")
+	var data: Dictionary = (load(EXAMPLES + "snake/design.tres") as CreatureDesign).to_dict()
+	for row: Dictionary in data.eyes:
+		row.erase("visible")
+	var design: CreatureDesign = CreatureDesign.from_data(data)
+	_expect(design.eyes.all(func(row: EyesDesign) -> bool: return row.visible), "舊的設計檔（沒有「顯示」）：眼睛預設顯示")
+	var creature := Creature.new()
+	creature.design = design
+	add_child(creature)
+	await get_tree().process_frame
+	var sight: float = creature.get_stats().sight
+	design.eyes[0].visible = false
+	creature.apply_design()
+	var eyes: Array[Node] = creature.find_children("*", "Eyes", true, false)
+	_expect(not eyes.is_empty() and not (eyes[0] as CanvasItem).visible, "眼睛藏起來：眼睛節點不畫")
+	_expect(is_equal_approx(creature.get_stats().sight, sight), "眼睛藏起來：視野照算（%.0f）" % sight)
+	_expect(design.hidden_eyes_without_image(), "眼睛藏起來、沒有自己的圖：要提醒")
+	design.body.head_image = "head.png"
+	_expect(not design.hidden_eyes_without_image(), "頭有自己的圖：不用提醒")
+	design.body.head_image = ""
+	var ornament := OrnamentDesign.new()
+	ornament.image_file = "wing.png"
+	design.ornaments.append(ornament)
+	_expect(not design.hidden_eyes_without_image(), "有掛件用了自己的圖：不用提醒")
+	ornament.visible = false
+	_expect(design.hidden_eyes_without_image(), "用了圖的掛件也藏起來：要提醒")
+	creature.apply_design()
+	var ornaments: Array[Node] = creature.find_children("*", "Ornament", true, false)
+	_expect(not ornaments.is_empty() and not (ornaments[0] as CanvasItem).visible, "掛件藏起來：掛件節點不畫")
+	design.eyes[0].visible = true
+	creature.apply_design()
+	eyes = creature.find_children("*", "Eyes", true, false)  # 加了掛件，零件重長過了：重新找
+	_expect(not eyes.is_empty() and (eyes[0] as CanvasItem).visible, "再打開：眼睛又畫出來")
+	var back: CreatureDesign = CreatureDesign.from_data(bytes_to_var(var_to_bytes(design.to_dict())))
+	_expect(not back.ornaments[0].visible and back.eyes[0].visible, "「顯示」會跟著連線的格式傳")
+	creature.queue_free()
+	await get_tree().process_frame
 
 
 func _test_garbage() -> void:

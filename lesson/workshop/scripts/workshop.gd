@@ -39,6 +39,8 @@ const MOVE_MODES: PackedStringArray = ["跟著滑鼠", "自己游", "停住"]
 const WORKSHOP_FLOW: float = 12.0
 ## 複雜度超過上限時，能力那幾行的顏色
 const COMPLEXITY_OVER_COLOR: Color = Color("#ff6b5e")
+## 眼睛藏起來、卻沒有自己的圖時的提醒
+const HIDDEN_EYES_MESSAGE: String = "眼睛藏起來了，但這隻沒有自己畫的圖：看起來會沒有眼睛（視野照算）。藏眼睛是給「圖上已經畫了眼睛」用的"
 ## 「噴一下看看」：按一下噴幾顆、每顆隔幾秒、噴出來的飼料幾秒後消失
 const SPRAY_BURST: int = 6
 const SPRAY_INTERVAL: float = 0.12
@@ -80,6 +82,8 @@ var _growth_help: Label
 ## 「飼料」分頁：噴出的飼料的外觀、預覽
 var _feed_editor: PartEditor
 var _feed_preview: Control
+## 已經提醒過「眼睛藏起來了但沒有圖」（避免每改一次就跳一次）
+var _warned_hidden_eyes: bool = false
 ## 「噴一下看看」還要噴幾顆、還要等幾秒才噴下一顆
 var _spray_left: int = 0
 var _spray_timer: float = 0.0
@@ -291,6 +295,7 @@ static func _safe_image_name(file: String) -> String:
 
 ## 任何控制項改了設計檔：生物馬上變樣子、能力重算，停下來一下就記一筆復原
 func _on_design_changed() -> void:
+	_warn_hidden_eyes()
 	_complexity = design_complexity()
 	_creature.apply_design()
 	_update_stats()
@@ -314,6 +319,17 @@ func _update_stats() -> void:
 	for list_field: String in _lists:
 		_refresh_list_names(list_field)
 		_refresh_list_buttons(list_field)
+
+
+## 眼睛藏起來了、卻沒有自己的圖：提醒一次（看起來會沒有眼睛）。之後改好又藏起來會再提醒
+## 情況解除了（眼睛打開、或加了自己的圖），上面還是這則提醒的話就收掉
+func _warn_hidden_eyes() -> void:
+	var warn: bool = design.hidden_eyes_without_image()
+	if warn and not _warned_hidden_eyes:
+		_show_message(HIDDEN_EYES_MESSAGE)
+	elif not warn and _message.text == HIDDEN_EYES_MESSAGE:
+		_show_message("")
+	_warned_hidden_eyes = warn
 
 
 # ---------------------------------------------------------------- 複雜度
@@ -501,6 +517,8 @@ func _part_name(field: String, index: int) -> String:
 	if "side" in part:
 		var sides: PackedStringArray = ["左", "右", "兩邊", "中間"]
 		text += "・" + sides[part.get("side")]
+	if "visible" in part and not part.get("visible"):
+		text += "（藏起來）"
 	return text
 
 

@@ -86,6 +86,22 @@ var image_folder: String = ""
 var image_cache: Dictionary = {}
 
 
+## 有沒有用自己畫的圖：身體（頭、每一節、尾巴）有圖，或是顯示中的掛件用了圖
+func has_own_image() -> bool:
+	for field: String in BodyDesign.image_fields():
+		if body.get(field) != "":
+			return true
+	for ornament: OrnamentDesign in ornaments:
+		if ornament.visible and ornament.image_file != "":
+			return true
+	return false
+
+
+## 有眼睛藏起來了、卻沒有自己畫的圖：看起來會沒有眼睛（視野照算），工坊要提醒
+func hidden_eyes_without_image() -> bool:
+	return eyes.any(func(row: EyesDesign) -> bool: return not row.visible) and not has_own_image()
+
+
 ## 「噴出的飼料」的欄位（工坊放在「飼料」分頁）：所有 spray_ 開頭的欄位
 func spray_fields() -> PackedStringArray:
 	var result := PackedStringArray()

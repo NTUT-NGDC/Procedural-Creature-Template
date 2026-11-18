@@ -16,6 +16,9 @@ extends PartDesign
 @export_range(0.0, 1.5, 0.01) var spread: float = 0.6
 
 @export_group("外觀")
+## 顯示：關掉就不畫出來，視野照算。頭用了自己畫的圖、圖上已經有眼睛的話，關掉才不會擋到圖。
+## （欄位名跟節點的 visible 一樣，套用設計時會直接設到眼睛節點上）
+@export var visible: bool = true
 ## 眼白顏色
 @export var white_color: Color = Color.WHITE
 ## 瞳孔顏色

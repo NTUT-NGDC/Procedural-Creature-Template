@@ -21,6 +21,8 @@ extends PartDesign
 @export_range(0.1, 5, 0.05) var size: float = 1.0
 
 @export_group("外觀")
+## 顯示：關掉就先不畫（不用刪掉重設）。（欄位名跟節點的 visible 一樣，套用設計時會直接設到掛件節點上）
+@export var visible: bool = true
 ## 顏色：形狀從根部（左）到尖端（右）的漸層。只放一個顏色就是單色
 @export var color_gradient: Gradient = Ornament._make_default_gradient()
 ## 外框：顏色和粗細跟身體一樣
