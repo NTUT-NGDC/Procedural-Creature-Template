@@ -364,6 +364,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "等級 0"
 
+[node name="DetailLabel" type="Label" parent="HUD/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "速度　轉向　抓取　視野
+加速的說明"
+
 [node name="MessageLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
 visible = false

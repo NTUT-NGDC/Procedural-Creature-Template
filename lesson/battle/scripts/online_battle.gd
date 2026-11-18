@@ -47,6 +47,8 @@ class Player:
 	var reached_at: float = 0.0
 	## 重生過幾次：學員的電腦看到變了，就把生物瞬間移過去
 	var spawns: int = 0
+	## 主機：撞倒幾隻（按「開始對戰」歸零，最終排名顯示）
+	var kills: int = 0
 	## 主機：這個玩家的操作（方向、加速）
 	var input_angle: float = 0.0
 	var input_boost: bool = false
@@ -474,6 +476,8 @@ func _on_creature_died(victim: Creature, blocker: Creature) -> void:
 	var blocker_id: int = _id_of(blocker)
 	if players.has(victim_id):
 		(players[victim_id] as Player).spawns += 1
+	if players.has(blocker_id) and blocker_id != victim_id:
+		(players[blocker_id] as Player).kills += 1
 	for id: int in _joined_peers():
 		_died.rpc_id(id, victim_id, blocker_id)
 
@@ -500,6 +504,7 @@ func start_match() -> void:
 		player.spawns += 1
 		player.level = 0
 		player.reached_at = 0.0
+		player.kills = 0
 	tank.show_message("開始！", 1.5)
 	_hud.set_started()
 	_hud.hide_notice()
@@ -514,7 +519,7 @@ func _end_match() -> void:
 	_broadcast_state()  # 最後的等級先送出去
 	var ranking: Array = []
 	for player: Player in ranking_order():
-		ranking.append([player.name, player.level])
+		ranking.append([player.name, player.level, player.kills])
 	for id: int in _joined_peers():
 		_phase_changed.rpc_id(id, phase, 0.0, ranking)
 	_show_result(ranking)
@@ -763,5 +768,6 @@ func _show_result(ranking: Array) -> void:
 	var lines := PackedStringArray()
 	for i: int in ranking.size():
 		var row: Array = ranking[i]
-		lines.append("%d. %s　%d 級" % [i + 1, str(row[0]), int(row[1])])
+		var kills: int = int(row[2]) if row.size() > 2 else 0  # 撞倒幾隻
+		lines.append("%d. %s　%d 級　撞倒 %d 隻" % [i + 1, str(row[0]), int(row[1]), kills])
 	_hud.show_notice("最終排名", "\n".join(lines) if not lines.is_empty() else "（沒有人）")

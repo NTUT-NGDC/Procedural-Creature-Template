@@ -181,16 +181,20 @@ func _test_network() -> void:
 	await _frames(10)
 	_expect(client.phase == OnlineBattle.Phase.PLAYING and client_side.creature.level == 0 and client.time_left > 200.0, "開始對戰：學員收到、大家回 0 級、開始倒數（%.0f 秒）" % client.time_left)
 	host.tank.player.grow(3)
+	host.tank.call("_kill", host_side.creature, host.tank.player)  # 社長撞倒小明一次
 	await _frames(5)
+	_expect((host.players[1] as OnlineBattle.Player).kills == 1 and host_side.kills == 0, "主機記下誰撞倒幾隻（社長 1、小明 0）")
 	host.time_left = 0.05
 	await _frames(10)
 	_expect(host.phase == OnlineBattle.Phase.ENDED and client.phase == OnlineBattle.Phase.ENDED, "時間到：主機、學員都結束")
 	var result: String = client._hud.get_notice()
 	_expect(result.contains("最終排名") and result.find("社長") < result.find("小明"), "學員看到最終排名（社長 3 級排第一）")
+	_expect(result.contains("社長　3 級　撞倒 1 隻") and result.contains("小明　0 級　撞倒 0 隻"), "最終排名有撞倒幾隻")
 	_expect(client.tank.process_mode == Node.PROCESS_MODE_DISABLED, "時間到：畫面停住")
 	host.start_match()
 	await _frames(10)
 	_expect(client.phase == OnlineBattle.Phase.PLAYING and client._hud.get_notice() == "", "再一場：最終排名關掉")
+	_expect((host.players[1] as OnlineBattle.Player).kills == 0, "再一場：撞倒幾隻歸零")
 
 	print("--- 被拒絕 ---")
 	var bad_packet: Dictionary = BattlePacket.build("壞掉", load(SNAKE), {})

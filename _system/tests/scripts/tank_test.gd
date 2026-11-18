@@ -35,6 +35,7 @@ func _ready() -> void:
 	await _test_battle_tank()
 	await _test_joystick()
 	await _test_spray_look()
+	await _test_detail_fades()
 
 	if _failures == 0:
 		print("[生態缸測試] 全部 PASS")
@@ -369,6 +370,25 @@ func _test_spray_look() -> void:
 		await get_tree().process_frame
 	_expect(true, "六種形狀加上外框、光暈、角度都畫過一次（沒有錯誤訊息）")
 	await _frames(2)
+	await _free(tank)
+
+
+## 左上角的能力、加速說明：一開始看得到，5 秒後淡掉；暫停時再出現，繼續遊戲又藏起來
+func _test_detail_fades() -> void:
+	print("--- 能力、加速說明淡掉 ---")
+	var tank: Tank = await _spawn({"food_interval": 0.0})
+	var hud: Node = tank.get_node("%HUD")
+	var detail: Label = tank.get_node("%DetailLabel")
+	_expect(hud.call("is_detail_shown") and "速度" in detail.text and "加速" in detail.text, "一開始看得到能力和加速說明")
+	_expect(not "速度" in (tank.get_node("%StatusLabel") as Label).text, "等級那一行沒有能力（分開了）")
+	await _seconds(6.2)
+	_expect(not hud.call("is_detail_shown"), "5 秒後淡掉")
+	get_tree().paused = true
+	await _frames(2)
+	_expect(hud.call("is_detail_shown"), "暫停時再出現")
+	get_tree().paused = false
+	await _frames(2)
+	_expect(not hud.call("is_detail_shown"), "繼續遊戲又藏起來")
 	await _free(tank)
 
 
