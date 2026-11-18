@@ -447,6 +447,8 @@ func _test_hide_eyes() -> void:
 	await _frames(1)
 	_expect(design.eyes[list.selected].visible and not "藏起來" in (list.selector as OptionButton).get_item_text(list.selected), "再勾回來：顯示")
 	_expect(not "沒有自己畫的圖" in message.text, "再勾回來：提醒收掉")
+	var icon: Texture2D = check.get_theme_icon("unchecked", "CheckBox")
+	_expect(icon is ImageTexture and (icon as ImageTexture).get_image().get_pixel(0, 0).v > 0.7, "沒勾的勾選框是亮灰色的框（看得到）")
 
 
 ## 編輯區裡名稱是 label_text 的那一排（找不到是 null）

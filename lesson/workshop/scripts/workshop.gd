@@ -565,11 +565,26 @@ func set_font_size(size: int) -> void:
 	_rebuild_editors()  # 名稱欄、數字欄這些寬度是做控制項時決定的，重做一次
 
 
-## 字的大小放在工坊的 Theme：底下的控制項、教學步驟卡都跟著變
+## 字的大小放在工坊的 Theme：底下的控制項、教學步驟卡都跟著變。
+## 勾選框「沒勾」的樣子也換掉：Godot 預設是深灰色的框，在深色的面板上幾乎看不見
 func _apply_font_size() -> void:
 	var new_theme := Theme.new()
 	new_theme.default_font_size = WorkshopSettings.font_size
+	var checked: Texture2D = ThemeDB.get_default_theme().get_icon("checked", "CheckBox")
+	new_theme.set_icon("unchecked", "CheckBox", _unchecked_icon(checked.get_width()))  # 跟「有勾」的一樣大
 	theme = new_theme
+
+
+## 沒勾的勾選框：亮灰色的框、裡面淡淡的（side 是邊長，像素）
+static func _unchecked_icon(side: int) -> ImageTexture:
+	var image := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	image.fill(Color(1, 1, 1, 0.08))
+	var border: int = maxi(floori(side / 8.0), 2)
+	for x: int in side:
+		for y: int in side:
+			if x < border or y < border or x >= side - border or y >= side - border:
+				image.set_pixel(x, y, Color(0.85, 0.85, 0.85))
+	return ImageTexture.create_from_image(image)
 
 
 func _panel_width() -> float:
