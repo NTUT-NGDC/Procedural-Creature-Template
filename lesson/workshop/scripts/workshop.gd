@@ -92,6 +92,8 @@ var _lists: Dictionary = {}
 var _file_dialog: FileDialog
 var _confirm: ConfirmationDialog
 var _confirm_folder: String = ""
+## 「平衡檢查」的視窗：列出多人時會調整的地方，可以一鍵套用
+var _balance_dialog: ConfirmationDialog
 ## 設計檔現在的複雜度（0 級的樣子）：改動之後超過上限、又比這個多，就擋下來
 var _complexity: int = 0
 
@@ -311,9 +313,13 @@ func _update_stats() -> void:
 		return
 	var balance: CreatureBalance = _creature.get_balance()
 	var mode_name: String = ["等比放大", "變長＋長出腳", "只變長"][design.growth_mode]
-	_stats_label.text = "速度 %s　轉向 %s\n抓取 %s　視野 %s\n體型 %d　%s　每升一級要吃 %d 個\n複雜度 %d / %d" % [
+	var length: float = CreatureGrowth.body_length(_creature.shape.body)
+	var at_limit: bool = length >= CreatureGrowth.length_limit_at(design, _creature.level, balance) - 0.5
+	var issues: int = BalanceCheck.check(design, balance).size()
+	_stats_label.text = "速度 %s　轉向 %s\n抓取 %s　視野 %s\n體型 %d　%s　每升一級要吃 %d 個\n身體長 %d%s　複雜度 %d / %d\n%s" % [
 		_stars(stats, "speed", balance), _stars(stats, "turn", balance), _stars(stats, "grab", balance), _stars(stats, "sight", balance),
-		roundi(stats.size), mode_name, stats.level_cost, stats.complexity, balance.max_complexity]
+		roundi(stats.size), mode_name, stats.level_cost, roundi(length), "（到上限，再拉長會變粗）" if at_limit else "",
+		stats.complexity, balance.max_complexity, "平衡檢查：多人會調整 %d 項（按上面的「平衡檢查」看）" % issues if issues > 0 else "平衡檢查：沒問題"]
 	_stats_label.add_theme_color_override("font_color", COMPLEXITY_OVER_COLOR if _complexity > balance.max_complexity else Color.WHITE)
 	_stats_label.tooltip_text = "速度 %d 像素／秒　轉向 %d 度／秒　抓取 %d 像素　視野 %d 像素（眼睛越多越大，生態缸的鏡頭拉得越遠）" % [roundi(stats.speed), roundi(rad_to_deg(stats.turn)), roundi(stats.grab), roundi(stats.sight)]
 	for list_field: String in _lists:
@@ -330,6 +336,36 @@ func _warn_hidden_eyes() -> void:
 	elif not warn and _message.text == HIDDEN_EYES_MESSAGE:
 		_show_message("")
 	_warned_hidden_eyes = warn
+
+
+# ---------------------------------------------------------------- 平衡檢查
+
+
+## 「平衡檢查」按鈕：列出多人對戰時主機會自動調整的地方（BalanceCheck），問要不要現在就套用
+func show_balance_check() -> void:
+	var issues: PackedStringArray = BalanceCheck.check(design, _creature.get_balance())
+	if issues.is_empty():
+		_show_message("平衡檢查：沒問題，多人對戰也不會被調整")
+		return
+	_balance_dialog.dialog_text = "多人對戰時，主機會自動調整這些地方（單人生態缸照你設計的樣子玩）：
+
+・%s
+
+要現在就改成調整後的樣子嗎？（改了可以按「復原」改回來）" % "
+・".join(issues)
+	_balance_dialog.popup_centered()
+
+
+## 套用平衡檢查的調整（記一筆復原）
+func apply_balance_fix() -> void:
+	_history_timer.stop()
+	_commit_history()  # 還沒記的改動先記起來，才復原得回來
+	var changes: PackedStringArray = BalanceCheck.fix(design, _creature.get_balance())
+	_rebuild_editors()
+	_on_design_changed()
+	_history_timer.stop()
+	_commit_history()
+	_show_message("平衡檢查：調整了 %d 項，多人對戰不會再被調整" % changes.size())
 
 
 # ---------------------------------------------------------------- 複雜度
@@ -645,6 +681,14 @@ func _build_ui() -> void:
 	_confirm.cancel_button_text = "不要"
 	_confirm.confirmed.connect(func() -> void: save_to(_confirm_folder))
 	add_child(_confirm)
+	_balance_dialog = ConfirmationDialog.new()
+	_balance_dialog.title = "平衡檢查"
+	_balance_dialog.ok_button_text = "套用"
+	_balance_dialog.cancel_button_text = "先不要"
+	_balance_dialog.dialog_autowrap = true
+	_balance_dialog.min_size = Vector2i(roundi(WorkshopSettings.ui(560)), 0)
+	_balance_dialog.confirmed.connect(apply_balance_fix)
+	add_child(_balance_dialog)
 
 
 func _build_top_bar() -> Control:
@@ -682,6 +726,7 @@ func _build_file_bar() -> Control:
 	bar.add_child(_undo_button)
 	_redo_button = _button("重做", redo, "取消復原（Ctrl+Y）")
 	bar.add_child(_redo_button)
+	bar.add_child(_button("平衡檢查", show_balance_check, "看看這隻生物在多人對戰時會不會被調整（單人生態缸不限制）"))
 	var font_option := OptionButton.new()
 	for font_name: String in WorkshopSettings.FONT_NAMES:
 		font_option.add_item(font_name)

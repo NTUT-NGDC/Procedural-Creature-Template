@@ -3,9 +3,9 @@ extends RefCounted
 ## 生態缸的規則（像 Slither）：用頭的「前方」撞到別人（頭或身體都算，不管誰大），撞人的那隻就死掉，被撞的沒事。
 ## 「前方」是頭朝的方向左右各 ram_angle（平衡資料，預設 45 度）：頭的側面、後面擦到別人不算撞人。
 ## 兩隻都用前方碰到對方（正面對撞）就兩隻都死。
-## 死掉的整隻散成一串大顆飼料，大家去搶。
+## 死掉的整隻散成一串大顆飼料（升到這一級吃的一部分），大家去搶。
 ## 都是不改任何東西的純函式：生態缸（裁判）每一幀拿每一對生物來問，之後連線的主機也用同一份。
-## 係數（每級掉幾個飼料、重生無敵幾秒）在平衡資料 balance.tres 的「碰撞」。
+## 係數（掉幾成飼料、重生無敵幾秒）在平衡資料 balance.tres 的「碰撞」。
 
 
 ## A 的頭有沒有碰到 B（B 的頭或身體任何一節，不管從哪個方向）
@@ -69,6 +69,16 @@ static func _distance_to_body(spot: Vector2, creature: Creature) -> float:
 	return nearest
 
 
-## 死掉的生物（等級 level）會掉幾個大顆飼料：（等級＋1）× 每級掉幾個，有上限
-static func dropped_food(level: int, balance: CreatureBalance) -> int:
-	return mini((level + 1) * balance.food_per_level, balance.max_drop_food)
+## 死掉的生物會掉幾個大顆飼料：升到這一級總共吃了多少（加上這一級吃到一半的）× drop_ratio，
+## 換成大顆（一顆算 big_food_value 個）。最少 min_drop_food 顆、最多 max_drop_food 顆。
+## base_cost 是牠的 CreatureStats.base_cost（升級成本還沒乘成長曲線的樣子）
+static func dropped_food(level: int, base_cost: float, progress: int, balance: CreatureBalance) -> int:
+	var eaten: int = CreatureStats.food_to_reach(base_cost, level, balance) + maxi(progress, 0)
+	var count: int = ceili(eaten * balance.drop_ratio / maxf(balance.big_food_value, 1.0))
+	return clampi(count, balance.min_drop_food, maxi(balance.max_drop_food, balance.min_drop_food))
+
+
+## 生物死掉會掉幾個大顆飼料（dropped_food() 的簡單版：直接給生物）
+static func dropped_food_of(creature: Creature) -> int:
+	var stats: CreatureStats = creature.get_stats()
+	return dropped_food(creature.level, stats.base_cost if stats != null else 1.0, creature.food_progress, creature.get_balance())

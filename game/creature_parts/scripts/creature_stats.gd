@@ -19,8 +19,12 @@ var grab: float = 0.0
 var grab_trait: String = ""
 ## 視野（像素）
 var sight: float = 0.0
-## 升一級要吃幾個
+## 升一級要吃幾個（已經乘上成長曲線）
 var level_cost: int = 1
+## 還沒乘成長曲線的升級成本（0 級時升一級要吃幾個，不四捨五入）。算「總共吃了多少」用
+var base_cost: float = 1.0
+## 會抓食物的觸手有幾條（「兩邊」算 2 條）
+var grab_count: int = 0
 ## 複雜度（零件越多越高，上限在平衡資料的 max_complexity）
 var complexity: int = 0
 ## 四種能力各 0～1（除以上限），顯示星星、算成本用
@@ -34,7 +38,21 @@ static func at_level(design: CreatureDesign, level: int, balance: CreatureBalanc
 	if level > 0:
 		var start: CreatureStats = compute(CreatureGrowth.shape_at(design, 0, balance), balance)
 		stats.speed = maxf(stats.speed, start.speed * balance.min_speed_ratio)
+	stats.level_cost = cost_at(stats.base_cost, level, balance)
 	return stats
+
+
+## 成長曲線：等級 level 時升一級要吃幾個＝基本成本 ×（1＋等級 × cost_per_level），等級越高越慢
+static func cost_at(base: float, level: int, balance: CreatureBalance) -> int:
+	return maxi(roundi(base * (1.0 + maxi(level, 0) * balance.cost_per_level)), 1)
+
+
+## 從 0 級升到 level 級，總共吃了幾個（每一級的基本成本當作一樣，用現在的 base_cost 算）。死掉掉多少飼料用
+static func food_to_reach(base: float, level: int, balance: CreatureBalance) -> int:
+	var total: int = 0
+	for i: int in maxi(level, 0):
+		total += cost_at(base, i, balance)
+	return total
 
 
 ## 算出某個形狀的能力（shape 通常是 CreatureGrowth.shape_at() 的結果）
@@ -43,7 +61,8 @@ static func compute(shape: CreatureDesign, balance: CreatureBalance) -> Creature
 	var body: BodyDesign = shape.body
 	stats.size = CreatureGrowth.body_size(body)
 	# 速度：推進力（腳、游動）÷ 體型，越大越慢
-	stats.thrust = balance.base_thrust + count_feet(shape) * balance.thrust_per_foot + body.swim_amplitude * balance.thrust_per_swim
+	var swim: float = minf(body.swim_amplitude * balance.thrust_per_swim, balance.max_swim_thrust)  # 游動有上限：擺幅不算複雜度
+	stats.thrust = balance.base_thrust + count_feet(shape) * balance.thrust_per_foot + swim
 	stats.speed = clampf(balance.speed_factor * pow(stats.thrust / stats.size, balance.speed_power), balance.min_speed, balance.max_speed)
 	# 轉向：身體越長越難轉；觸手拖在後面，最長那條算一部分（turn_tentacle_ratio）
 	var longest_tentacle: float = 0.0
@@ -56,6 +75,7 @@ static func compute(shape: CreatureDesign, balance: CreatureBalance) -> Creature
 	for tentacle: TentacleDesign in shape.tentacles:
 		if tentacle.behavior == Tentacle.Behavior.GRAB_FOOD:
 			stats.grab = maxf(stats.grab, tentacle.length)
+			stats.grab_count += _copies(tentacle.side)
 		if longest == null or tentacle.length > longest.length:
 			longest = tentacle
 	stats.grab = minf(stats.grab, balance.max_grab)
@@ -70,16 +90,19 @@ static func compute(shape: CreatureDesign, balance: CreatureBalance) -> Creature
 	stats.ratios = {
 		"speed": stats.speed / balance.max_speed,
 		"turn": stats.turn / balance.max_turn,
-		"grab": stats.grab / maxf(balance.max_grab, 1.0),
+		"grab": stats.grab / maxf(balance.max_grab, 1.0),  # 星星最多滿格；算成本時再乘上觸手條數（下面）
 		"sight": stats.sight / maxf(balance.max_sight, 1.0),
 	}
 	var power: float = 0.0
 	for ratio: float in stats.ratios.values():
 		power += ratio
+	# 會抓食物的觸手越多條，一次抓越多顆：每多一條，抓取多算 grab_per_extra_tentacle 成
+	power += stats.ratios.grab * maxi(stats.grab_count - 1, 0) * balance.grab_per_extra_tentacle
 	# 複雜度：零件越多越貴（掛件不算，掛件不會讓生物變強）
 	stats.complexity = complexity_of(shape, balance)
 	var parts: float = float(complexity_of(shape, balance, false)) / maxf(balance.max_complexity, 1.0)
-	stats.level_cost = maxi(roundi(balance.growth_cost(shape.growth_mode) * (1.0 + power * balance.cost_per_power) * (1.0 + parts * balance.cost_per_complexity)), 1)
+	stats.base_cost = balance.growth_cost(shape.growth_mode) * (1.0 + power * balance.cost_per_power) * (1.0 + parts * balance.cost_per_complexity)
+	stats.level_cost = cost_at(stats.base_cost, 0, balance)  # 還沒算成長曲線；at_level() 會照等級再算一次
 	return stats
 
 

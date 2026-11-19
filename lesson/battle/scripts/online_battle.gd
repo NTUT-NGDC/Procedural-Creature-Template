@@ -112,9 +112,13 @@ func _ready() -> void:
 	tank.remote_view = not is_host
 	tank.game_name = "連線對戰"
 	tank.touch_joystick = 2  # 連線只在電腦上玩，不放手機搖桿
-	tank.player_design = my_design if is_host else null
+	# 主機自己的生物也照平衡檢查調整（學員的在 _request_join() 調）。my_design 不動，回大廳還是原本的樣子
+	var balance_notes: PackedStringArray = BattlePacket.balance_packet(my_packet, tank.get_balance()) if is_host else PackedStringArray()
+	tank.player_design = (BattlePacket.unpack_design(my_packet) if not balance_notes.is_empty() else my_design) if is_host else null
 	add_child(tank)
 	move_child(tank, 0)  # 對戰的介面在生態缸上面
+	if not balance_notes.is_empty():
+		_balanced(balance_notes)
 	tank.get_node("PauseMenu").connect("title_requested", leave.bind(TITLE_SCENE))  # 暫停選單的「回到標題」
 	_hud.start_pressed.connect(start_match)
 	_hud.leave_pressed.connect(leave.bind(LOBBY_SCENE))
@@ -314,9 +318,12 @@ func _request_join(packet: Variant) -> void:
 			if multiplayer.multiplayer_peer != null:
 				multiplayer.multiplayer_peer.disconnect_peer(id))
 		return
+	var balance_notes: PackedStringArray = BattlePacket.balance_packet(packet, tank.get_balance())  # 不公平的地方自動調整（BalanceCheck）
 	var player: Player = _add_player(id, _player_name(packet, players.size() + 1), packet, _spawn_remote(packet))
 	tank.show_message("%s 加入了" % player.name, 2.0)
 	_welcome.rpc_id(id, id, phase, time_left)
+	if not balance_notes.is_empty():
+		_balanced.rpc_id(id, balance_notes)
 	_queue(id, ["_player_joined", _entry(player)])  # 自己的先送，畫面才早點出現
 	for other: Player in players.values():
 		if other.id != id:
@@ -572,6 +579,15 @@ func _welcome(id: int, now_phase: int, now_time_left: float) -> void:
 	_connecting = 0.0
 	tank.show_message("加入了！", 1.5)
 	_set_phase(now_phase, now_time_left)
+
+
+## 主機為了公平調整了你的生物（BalanceCheck）：告訴你調了什麼。單人生態缸不會調
+@rpc("authority", "reliable")
+func _balanced(notes: PackedStringArray) -> void:
+	tank.show_message("為了公平，你的生物在多人對戰調整了 %d 個地方（單人照原本的樣子）：
+・%s
+在生物工坊按「平衡檢查」可以看到一樣的說明" % [notes.size(), "
+・".join(notes)], 8.0)
 
 
 ## 有一個玩家（可能是自己）：照他的設計檔建一隻生物（只照主機給的位置擺，不自己動）

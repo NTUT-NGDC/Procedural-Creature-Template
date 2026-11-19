@@ -76,6 +76,9 @@ static func creature_info(design: CreatureDesign) -> String:
 		var total: int = BattlePacket.total_bytes(images)
 		lines.append("自己的圖 %d 張，共 %d KB%s" % [images.size(), BattlePacket.kb(total),
 			"（超過 %d KB，加入時會問你要不要縮小）" % BattlePacket.kb(BattlePacket.MAX_IMAGE_BYTES) if total > BattlePacket.MAX_IMAGE_BYTES else ""])
+	var notes: PackedStringArray = BalanceCheck.check(design, balance)
+	if not notes.is_empty():
+		lines.append("為了公平，多人對戰會調整 %d 個地方（在生物工坊按「平衡檢查」看說明）" % notes.size())
 	lines.append("想換生物：回標題畫面按「＜」「＞」")
 	return "
 ".join(lines)

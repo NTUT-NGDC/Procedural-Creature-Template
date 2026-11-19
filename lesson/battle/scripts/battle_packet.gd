@@ -134,6 +134,18 @@ static func check(data: Variant, balance: CreatureBalance) -> String:
 	return ""
 
 
+## 平衡檢查（BalanceCheck）：把封包裡的設計檔調到公平的範圍（直接改 packet），回傳調了哪些。
+## 主機收到學員的封包、check() 通過之後呼叫；主機自己的封包也是。圖不會變
+static func balance_packet(packet: Dictionary, balance: CreatureBalance) -> PackedStringArray:
+	if not packet.get("design") is Dictionary:
+		return PackedStringArray()
+	var design: CreatureDesign = CreatureDesign.from_data(packet.design)
+	var notes: PackedStringArray = BalanceCheck.fix(design, balance)
+	if not notes.is_empty():
+		packet.design = design.to_dict()
+	return notes
+
+
 ## 開頭是不是 PNG 的記號（不是的話不用讀，省得印一堆錯誤）
 static func is_png(bytes: PackedByteArray) -> bool:
 	return bytes.size() > 8 and bytes.slice(0, 8) == PackedByteArray([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])

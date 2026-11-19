@@ -187,19 +187,26 @@ func _find_target(side_sign: float) -> Variant:
 	return null
 
 
-## 找觸手伸得到的最近食物（食物要在 "food" 群組裡）：距離在觸手長度以內、
+## 找觸手伸得到的最近食物（食物要在 "food" 群組裡）：距離在抓取範圍（grab_reach()）以內、
 ## 方向在伸出方向（rest_angle）左右各 grab_angle 以內
 func _nearest_food(base: Vector2, rest_angle: float) -> Node2D:
 	var nearest: Node2D = null
+	var reach: float = grab_reach()
 	for node: Node in get_tree().get_nodes_in_group("food"):
 		var food: Node2D = node as Node2D
-		if food == null or base.distance_to(food.global_position) > length:
+		if food == null or base.distance_to(food.global_position) > reach:
 			continue
 		if absf(angle_difference(rest_angle, base.angle_to_point(food.global_position))) > grab_angle:
 			continue  # 不在抓取角度裡（例如在身體後面）
 		if nearest == null or base.distance_to(food.global_position) < base.distance_to(nearest.global_position):
 			nearest = food
 	return nearest
+
+
+## 抓得到多遠：觸手長度，但不超過平衡資料的抓取範圍上限（max_grab），跟顯示的能力一樣
+func grab_reach() -> float:
+	var creature: Creature = get_creature()
+	return minf(length, creature.get_balance().max_grab) if creature != null else length
 
 
 ## 末端碰到食物就吃掉（食物是 _find_target() 剛找到的那個）
@@ -307,15 +314,16 @@ func _draw_suckers(points: PackedVector2Array, side_sign: float) -> void:
 		FastDraw.circle(self, points[i] + across * width * 0.45, width * 0.35, sucker_color)
 
 
-## 抓得到的範圍：從根部、伸出方向左右各 grab_angle、半徑是觸手長度的扇形
+## 抓得到的範圍：從根部、伸出方向左右各 grab_angle、半徑是抓取範圍（grab_reach()）的扇形
 func _draw_grab_range(side_sign: float) -> void:
 	var base: Vector2 = _root(side_sign)
+	var reach: float = grab_reach()
 	var angle: float = _rest_angle(side_sign)
 	var faint: Color = CreatureDebug.BONE_COLOR
 	faint.a = 0.35
 	var arc := PackedVector2Array([to_local(base)])
 	for i: int in 13:
-		arc.append(to_local(base + Vector2.from_angle(angle - grab_angle + grab_angle * 2.0 * i / 12.0) * length))
+		arc.append(to_local(base + Vector2.from_angle(angle - grab_angle + grab_angle * 2.0 * i / 12.0) * reach))
 	arc.append(to_local(base))
 	draw_polyline(arc, faint, 1.0)
 

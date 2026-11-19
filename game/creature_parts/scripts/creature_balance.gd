@@ -5,13 +5,14 @@ extends Resource
 ## 預設的檔案是 game/creature_parts/data/balance.tres。
 ##
 ## 公式（寫在 creature_stats.gd 和 creature_growth.gd）：
-##   體型＝身體的面積（每節的寬度 × 2 × 間距，全部加起來）
-##   推進力＝基本推進力＋腳的數量 × 每隻腳的推進力＋游動擺幅 × 游動推進力
+##   體型＝身體的面積（每節的寬度 × 2 × 間距，全部加起來）。身體長度有上限，太長的縮短間距、加粗
+##   推進力＝基本推進力＋腳的數量 × 每隻腳的推進力＋游動擺幅 × 游動推進力（游動的有上限）
 ##   速度＝速度係數 ×（推進力 ÷ 體型）的「體型影響」次方（夾在上下限）
 ##   轉向＝基本轉向 ÷（1＋身體長度 × 長度對轉向的影響）（夾在上下限）
-##   抓取範圍＝最長的觸手（有上限）
+##   抓取範圍＝會抓食物的觸手裡最長的那條（有上限，觸手實際也只抓得到這麼遠）；觸手越多條，能力分數越高
 ##   視野＝基本視野＋眼睛數量 × 眼睛大小 × 每顆眼睛的視野（有上限）。玩家的視野越大，生態缸的鏡頭拉得越遠
 ##   升一級要吃幾個＝長大方式的成本 ×（1＋能力總和 × 能力對成本的影響）×（1＋能力零件的複雜度 ÷ 上限 × 複雜度對成本的影響）
+##     ×（1＋等級 × 成長曲線）：等級越高升級越慢
 ##   複雜度＝身體節數 × 點數＋腳的數量 × 點數＋觸手節數 × 點數＋眼睛數量 × 點數＋掛件數量 × 點數
 ##     （零件越多，每台電腦畫起來越重。工坊超過上限就不能再加；長大到上限就改成整隻放大；
 ##       生態缸、對戰不收超過上限的生物。掛件算在上限裡，但不算進升級成本，因為掛件不會讓生物變強）
@@ -19,7 +20,7 @@ extends Resource
 ## 生態缸的規則（寫在 game/tank/scripts/tank_rules.gd，像 Slither）：
 ##   撞：頭撞到別人（頭或身體，不管誰大），撞人的那隻死掉
 ##   頭碰頭：衝向對方的那隻死；兩隻都朝對方衝超過「正面對撞速度」就兩隻都死
-##   死掉的生物散成（等級＋1）×「每級掉幾個飼料」個大顆飼料
+##   死掉的生物掉出「升到這一級總共吃了多少」× 掉幾成，變成大顆飼料
 
 ## 預設的平衡資料
 const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
@@ -33,6 +34,10 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(10, 5000, 10) var size_per_level: float = 500.0
 ## 長大時身體最多幾節，超過就改成整隻等比放大
 @export_range(2, 80, 1) var max_grow_segments: int = 80
+## 一開始身體最長多少（像素，頭到尾）：太長的會縮短間距、加粗（體型不變）。畫面寬 1280
+@export_range(50, 5000, 10) var max_start_length: float = 600.0
+## 長大時身體最長多少（像素）：到了就不再變長，多的體型都拿來變粗
+@export_range(50, 5000, 10) var max_body_length: float = 1200.0
 
 @export_group("速度")
 ## 基本推進力：沒有腳、不游動也有的推進力
@@ -41,6 +46,8 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(0, 1000, 5) var thrust_per_foot: float = 100.0
 ## 游動推進力：游動擺幅每 1 像素加多少推進力（蛇、魚靠這個）
 @export_range(0, 500, 1) var thrust_per_swim: float = 150.0
+## 游動推進力上限：擺幅再大，游動的推進力也只算到這裡（擺幅不算複雜度，不設上限的話等於免費的速度）
+@export_range(0, 10000, 10) var max_swim_thrust: float = 1500.0
 ## 速度係數：速度＝這個數字 ×（推進力 ÷ 體型）的「體型影響」次方
 @export_range(0, 2000, 5) var speed_factor: float = 300.0
 ## 體型影響：1 是「推進力 ÷ 體型」原樣（大小差很多時速度也差很多），越小差距越小
@@ -57,14 +64,16 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 ## 長度對轉向的影響：身體每長 1 像素，轉向變慢多少（長度＝身體＋最長的觸手 × 觸手算幾成）
 @export_range(0, 0.05, 0.0005) var turn_per_length: float = 0.004
 ## 轉向下限、上限（度／秒）
-@export_range(10, 1080, 10, "radians_as_degrees") var min_turn: float = deg_to_rad(90.0)
+@export_range(10, 1080, 10, "radians_as_degrees") var min_turn: float = deg_to_rad(60.0)
 @export_range(10, 1080, 10, "radians_as_degrees") var max_turn: float = deg_to_rad(280.0)
 ## 觸手算幾成長度：最長那條觸手 × 這個比例，加進轉向用的長度（觸手越長越難轉）
 @export_range(0, 2, 0.05) var turn_tentacle_ratio: float = 0.5
 
 @export_group("抓取與視野")
-## 抓取範圍上限（像素）：觸手再長也只算到這裡
+## 抓取範圍上限（像素）：觸手再長，也只抓得到這麼遠的飼料
 @export_range(0, 1000, 5) var max_grab: float = 250.0
+## 會抓食物的觸手每多一條（「兩邊」算 2 條），抓取的能力分數多幾成（升級跟著變貴）
+@export_range(0, 1, 0.01) var grab_per_extra_tentacle: float = 0.1
 ## 基本視野（像素）：沒有眼睛也看得到這麼遠
 @export_range(0, 2000, 10) var base_sight: float = 200.0
 ## 每顆眼睛的視野：眼睛數量 × 眼睛大小 × 這個數字
@@ -83,6 +92,8 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(0, 5, 0.05) var cost_per_power: float = 0.5
 ## 複雜度對成本的影響：能力零件的複雜度 ÷ 上限 × 這個數字，再乘在基本成本上（零件越多越貴）
 @export_range(0, 5, 0.05) var cost_per_complexity: float = 0.5
+## 成長曲線：每高一級，升級要吃的多幾成（0.25 是 4 級時要吃 2 倍、8 級 3 倍）。0 是每一級都一樣
+@export_range(0, 2, 0.01) var cost_per_level: float = 0.25
 
 @export_group("複雜度")
 ## 複雜度上限：一隻生物最多幾點。對戰時每台電腦要畫全部的生物，零件太多會拖慢所有人
@@ -111,8 +122,10 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(1, 20, 1) var big_food_value: int = 3
 
 @export_group("碰撞")
-## 死掉的生物，每一級掉幾個大顆飼料（0 級也算 1 級）
-@export_range(0, 20, 1) var food_per_level: int = 2
+## 死掉的生物，掉出「升到這一級總共吃了多少」的幾成（變成大顆飼料）。1 是全部掉出來
+@export_range(0, 1, 0.05) var drop_ratio: float = 0.5
+## 死掉的生物最少掉幾個大顆飼料（0 級死掉也有）
+@export_range(0, 20, 1) var min_drop_food: int = 2
 ## 一次最多掉幾個飼料（太多網頁版會卡）
 @export_range(1, 200, 1) var max_drop_food: int = 30
 ## 撞人的角度：頭朝的方向左右各幾度以內碰到別人，才算撞人（撞人的死）；頭的側面、後面擦到不算。
@@ -127,6 +140,15 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 ## 加速時每秒消耗幾個飼料（消耗的變成小顆飼料掉在身後）。
 ## 這一級吃到一半的用完了就掉一級、繼續消耗，一直噴到 0 級、一個都不剩才停
 @export_range(0.1, 20, 0.1) var boost_cost: float = 2.0
+
+@export_group("平衡檢查（多人）")
+## 以下是工坊「平衡檢查」和對戰主機用的規則：單人不限制，多人時主機自動調到這裡面
+## 間距最多是粗細的幾倍：太稀的話節跟節中間有洞，別人的頭穿得過去
+@export_range(0.5, 5, 0.05) var max_spacing_ratio: float = 1.5
+## 身體最少多不透明（0～1）：太透明就是看不到的牆
+@export_range(0, 1, 0.05) var min_body_alpha: float = 0.6
+## 會抓食物的觸手最多幾條（「兩邊」算 2 條），多的改成「波浪擺動」
+@export_range(0, 32, 1) var max_grab_tentacles: int = 8
 
 @export_group("星星")
 ## 能力顯示成幾顆星（1～這個數字）

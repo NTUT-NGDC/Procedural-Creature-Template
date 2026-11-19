@@ -322,10 +322,9 @@ func _judge_creatures() -> void:
 ## victim 撞到 blocker 死掉：沿著身體散成一串大顆飼料。
 ## 玩家、連線的其他玩家（"respawn" 群組）重生，其他生物消失
 func _kill(victim: Creature, blocker: Creature) -> void:
-	var balance: CreatureBalance = victim.get_balance()
 	var body: ChainBody = victim.get_body()
 	var along: PackedVector2Array = body.get_joints() if body != null else PackedVector2Array([victim.global_position])
-	_scatter_food(along, TankRules.dropped_food(victim.level, balance), victim.design)
+	_scatter_food(along, TankRules.dropped_food_of(victim), victim.design)
 	if blocker == player and victim != player:
 		kills += 1
 		show_message("撞倒一隻！", 1.5)

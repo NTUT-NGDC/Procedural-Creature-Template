@@ -8,6 +8,7 @@ extends RefCounted
 ##   ② 變長＋長出腳：加節數，每隔幾節長一對腳
 ##   ③ 只變長：加節數，腳不變
 ## 一開始的體型會先夾在平衡資料的上下限之間（太大、太小的整隻縮放）。
+## 身體長度也有上限（一開始 max_start_length，長大慢慢放寬到 max_body_length）：太長的縮短間距、加粗，體型不變。
 ## ②③ 長到複雜度上限（零件太多）就不再加節、加腳，剩下的改成整隻放大。
 ## Creature 升級時、工坊的「升 5 級預覽」、NPC 都用這個。
 
@@ -42,7 +43,35 @@ static func shape_at(design: CreatureDesign, level: int, balance: CreatureBalanc
 			add_legs(shape, design.body.segment_count)
 		fit_complexity(shape, design, balance)
 		reach_size(shape, target)
+	fit_length(shape, length_limit(start, target, balance))
 	return shape
+
+
+## 身體長度上限：一開始 max_start_length，跟著體型慢慢放寬（像整隻放大一樣），最長到 max_body_length。
+## start 是一開始的體型（夾過上下限）、target 是這一級的體型
+static func length_limit(start: float, target: float, balance: CreatureBalance) -> float:
+	return minf(balance.max_start_length * sqrt(target / maxf(start, 1.0)), maxf(balance.max_body_length, balance.max_start_length))
+
+
+## 設計檔長到 level 級時，身體最長多長（工坊顯示用）
+static func length_limit_at(design: CreatureDesign, level: int, balance: CreatureBalance) -> float:
+	var start: float = clampf(body_size(design.body), balance.min_start_size, balance.max_start_size)
+	return length_limit(start, start + balance.size_per_level * maxi(level, 0), balance)
+
+
+## 身體長度：頭到尾巴多長（像素）
+static func body_length(body: BodyDesign) -> float:
+	return (body.segment_count - 1) * body.spacing
+
+
+## 身體太長：間距縮短、身體加粗同樣的倍數，體型（面積）不變。零件不跟著變
+static func fit_length(shape: CreatureDesign, max_length: float) -> void:
+	var length: float = body_length(shape.body)
+	if length <= max_length or length <= 0.0:
+		return
+	var factor: float = max_length / length
+	shape.body.spacing *= factor
+	shape.body.thickness /= factor
 
 
 ## ① 等比放大：身體和每個零件的長度類欄位都乘上 factor
