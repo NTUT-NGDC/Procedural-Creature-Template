@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://_system/showcase/scripts/slide_swim.gd" id="1_swim"]
+[ext_resource type="Script" path="res://game/tank/scripts/tank_water.gd" id="2_water"]
+
+[node name="SlideSwim" type="Node2D"]
+script = ExtResource("1_swim")
+
+[node name="Water" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_water")
+
+[node name="Plants" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Creatures" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Camera" type="Camera2D" parent="."]
+unique_name_in_owner = true
