@@ -4,7 +4,8 @@ extends RefCounted
 ## 多人對戰時，主機把設計檔自動調到這些規則裡面，再告訴學員調了什麼。
 ## 工坊的「平衡檢查」按鈕、對戰大廳、主機都用這一份。規則的數字在平衡資料的「平衡檢查（多人）」。
 ##
-## 公式本身的上限（身體長度、觸手抓取範圍、游動推進力）寫在能力計算和長大方式裡，單人也有效，不在這裡。
+## 公式本身的上限（身體長度、觸手長度、觸手抓取範圍、游動推進力）和「看得到的身體」（太透明、不畫身體、太細）
+## 寫在能力計算和長大方式裡，單人也有效，不在這裡。
 
 
 ## 檢查：回傳多人時會調整的地方（一項一句話，空的就是沒問題）。不會改到 design
@@ -20,7 +21,6 @@ static func fix(design: CreatureDesign, balance: CreatureBalance) -> PackedStrin
 	if design == null or design.body == null:
 		return changes
 	_fix_spacing(design.body, balance, changes)
-	_fix_body_alpha(design.body, balance, changes)
 	_fix_grab_tentacles(design, balance, changes)
 	return changes
 
@@ -38,25 +38,6 @@ static func _fix_spacing(body: BodyDesign, balance: CreatureBalance, changes: Pa
 	body.spacing = minf(body.spacing, floorf(body.thickness * ratio))
 	changes.append("身體%s → 間距 %d、粗細 %d：節跟節離太遠，中間的洞會讓別人的頭穿過去（間距最多是粗細的 %.1f 倍）" % [
 		old, roundi(body.spacing), roundi(body.thickness), balance.max_spacing_ratio])
-
-
-## 身體太透明：看不到的牆。顏色的不透明度至少 min_body_alpha；不畫身體又沒有每一節的圖，改成畫身體
-static func _fix_body_alpha(body: BodyDesign, balance: CreatureBalance, changes: PackedStringArray) -> void:
-	if not body.draw_body and body.segment_image == "":
-		body.draw_body = true
-		changes.append("「也畫身體」打開：沒有每一節的圖又不畫身體，別人看不到你的身體就會撞上去")
-	if body.body_gradient == null:
-		return
-	var colors: PackedColorArray = body.body_gradient.colors
-	var lowest: float = 1.0
-	for i: int in colors.size():
-		lowest = minf(lowest, colors[i].a)
-		colors[i].a = maxf(colors[i].a, balance.min_body_alpha)
-	if lowest >= balance.min_body_alpha - 0.001:
-		return
-	body.body_gradient = body.body_gradient.duplicate() as Gradient  # 複製一份再改，不動到別人共用的漸層
-	body.body_gradient.colors = colors
-	changes.append("身體的不透明度 %d%% → %d%%：太透明的身體是看不到的牆" % [roundi(lowest * 100.0), roundi(balance.min_body_alpha * 100.0)])
 
 
 ## 會抓食物的觸手太多：一次掃光一大片。最多 max_grab_tentacles 條（「兩邊」算 2 條），從最短的開始改成「波浪擺動」

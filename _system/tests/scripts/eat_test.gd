@@ -40,6 +40,7 @@ func _test_crash() -> void:
 	var tank: Tank = await _spawn()
 	var player: Creature = tank.player
 	player.set_level(5)
+	var drop: int = TankRules.dropped_food_of(player)  # 5 級死掉會掉幾個（死掉之後就回到 0 級了，先算好）
 	var other: Creature = await _add(tank, 2, Vector2(2000, 400))
 	_place(player, _tail(other), -PI / 2.0)  # 頭在對方的尾巴上，身體往下（不會被對方的頭碰到）
 	await _frames(2)
@@ -51,7 +52,7 @@ func _test_crash() -> void:
 	_expect(tank.kills == 0, "自己撞死的：撞倒幾隻不會 +1")
 	var foods: Array[Node] = tank.get_node("%Foods").get_children()
 	var balance: CreatureBalance = player.get_balance()
-	_expect(foods.size() == TankRules.dropped_food(5, balance), "5 級死掉：散成 %d 個飼料（%d 個）" % [TankRules.dropped_food(5, balance), foods.size()])
+	_expect(foods.size() == drop, "5 級死掉：散成 %d 個飼料（%d 個）" % [drop, foods.size()])
 	_expect(foods.all(func(food: Node) -> bool: return (food as Food).value == balance.big_food_value), "都是大顆")
 	_expect(foods.all(func(food: Node) -> bool: return not food.is_in_group("food")), "剛掉的飼料一下子不能吃")
 	await _seconds(1.0)

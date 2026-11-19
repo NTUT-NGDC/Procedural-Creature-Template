@@ -320,6 +320,10 @@ func _update_stats() -> void:
 		_stars(stats, "speed", balance), _stars(stats, "turn", balance), _stars(stats, "grab", balance), _stars(stats, "sight", balance),
 		roundi(stats.size), mode_name, stats.level_cost, roundi(length), "（到上限，再拉長會變粗）" if at_limit else "",
 		stats.complexity, balance.max_complexity, "平衡檢查：多人會調整 %d 項（按上面的「平衡檢查」看）" % issues if issues > 0 else "平衡檢查：沒問題"]
+	# 看得到的身體：太透明、不畫身體、太細的，遊戲裡（單人也是）會自動調整，旁邊的生物就是調完的樣子
+	var notes: PackedStringArray = CreatureGrowth.visibility_notes(design, balance)
+	if not notes.is_empty():
+		_stats_label.text += "\n別人要看得到你的身體，遊戲裡會調整：\n・%s" % "\n・".join(notes)
 	_stats_label.add_theme_color_override("font_color", COMPLEXITY_OVER_COLOR if _complexity > balance.max_complexity else Color.WHITE)
 	_stats_label.tooltip_text = "速度 %d 像素／秒　轉向 %d 度／秒　抓取 %d 像素　視野 %d 像素（眼睛越多越大，生態缸的鏡頭拉得越遠）" % [roundi(stats.speed), roundi(rad_to_deg(stats.turn)), roundi(stats.grab), roundi(stats.sight)]
 	for list_field: String in _lists:

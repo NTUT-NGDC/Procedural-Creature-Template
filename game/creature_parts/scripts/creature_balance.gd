@@ -5,7 +5,8 @@ extends Resource
 ## 預設的檔案是 game/creature_parts/data/balance.tres。
 ##
 ## 公式（寫在 creature_stats.gd 和 creature_growth.gd）：
-##   體型＝身體的面積（每節的寬度 × 2 × 間距，全部加起來）。身體長度有上限，太長的縮短間距、加粗
+##   體型＝身體的面積（每節的寬度 × 2 × 間距，全部加起來）。身體長度有上限，太長的縮短間距、加粗；觸手長度也有上限
+##   看得到的身體：太透明的調到最低不透明度、不畫身體又沒有圖的改成畫、太細的加粗（體型不變）
 ##   推進力＝基本推進力＋腳的數量 × 每隻腳的推進力＋游動擺幅 × 游動推進力（游動的有上限）
 ##   速度＝速度係數 ×（推進力 ÷ 體型）的「體型影響」次方（夾在上下限）
 ##   轉向＝基本轉向 ÷（1＋身體長度 × 長度對轉向的影響）（夾在上下限）
@@ -38,6 +39,17 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 @export_range(50, 5000, 10) var max_start_length: float = 600.0
 ## 長大時身體最長多少（像素）：到了就不再變長，多的體型都拿來變粗
 @export_range(50, 5000, 10) var max_body_length: float = 1200.0
+## 一開始觸手最長多少（像素）：身體太小被放大時，觸手也不會跟著變得超長
+@export_range(10, 2000, 10) var max_start_tentacle: float = 400.0
+## 長大時觸手最長多少（像素）：觸手不算進體型，不設上限的話等於免費變大
+@export_range(10, 2000, 10) var max_tentacle_length: float = 600.0
+
+@export_group("看得到的身體")
+## 撞到別人的身體會死，所以身體一定要讓別人看得到。單人、多人都一樣，太透明、太細的會自動調整
+## 身體最少多不透明（0～1）：太透明就是看不到的牆
+@export_range(0, 1, 0.05) var min_body_alpha: float = 0.6
+## 身體平均最少多寬（像素，中心到邊緣）：太細的會變粗、間距變短（體型不變）
+@export_range(0, 40, 0.5) var min_body_width: float = 6.0
 
 @export_group("速度")
 ## 基本推進力：沒有腳、不游動也有的推進力
@@ -145,8 +157,6 @@ const DEFAULT_PATH: String = "res://game/creature_parts/data/balance.tres"
 ## 以下是工坊「平衡檢查」和對戰主機用的規則：單人不限制，多人時主機自動調到這裡面
 ## 間距最多是粗細的幾倍：太稀的話節跟節中間有洞，別人的頭穿得過去
 @export_range(0.5, 5, 0.05) var max_spacing_ratio: float = 1.5
-## 身體最少多不透明（0～1）：太透明就是看不到的牆
-@export_range(0, 1, 0.05) var min_body_alpha: float = 0.6
 ## 會抓食物的觸手最多幾條（「兩邊」算 2 條），多的改成「波浪擺動」
 @export_range(0, 32, 1) var max_grab_tentacles: int = 8
 

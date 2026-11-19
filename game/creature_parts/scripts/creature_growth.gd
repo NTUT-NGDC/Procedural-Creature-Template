@@ -9,6 +9,8 @@ extends RefCounted
 ##   ③ 只變長：加節數，腳不變
 ## 一開始的體型會先夾在平衡資料的上下限之間（太大、太小的整隻縮放）。
 ## 身體長度也有上限（一開始 max_start_length，長大慢慢放寬到 max_body_length）：太長的縮短間距、加粗，體型不變。
+## 觸手也有長度上限（一開始 max_start_tentacle，長大最長 max_tentacle_length）。
+## 身體一定要看得到（make_visible()）：太透明、不畫身體又沒有圖、太細的，先調好再長大。
 ## ②③ 長到複雜度上限（零件太多）就不再加節、加腳，剩下的改成整隻放大。
 ## Creature 升級時、工坊的「升 5 級預覽」、NPC 都用這個。
 
@@ -28,6 +30,7 @@ static func shape_at(design: CreatureDesign, level: int, balance: CreatureBalanc
 	var shape: CreatureDesign = CreatureDesign.from_data(design.to_dict())  # 複製一份，不改原本的
 	shape.image_folder = design.image_folder if design.image_folder != "" else design.resource_path.get_base_dir()
 	shape.image_cache = design.image_cache  # 連線收到的圖（同一份，不複製）
+	make_visible(shape, balance)  # 太透明、不畫身體、太細的先調成看得到
 	var size: float = body_size(shape.body)
 	var start: float = clampf(size, balance.min_start_size, balance.max_start_size)
 	scale_all(shape, sqrt(start / size))  # 一開始的體型夾在上下限之間
@@ -44,7 +47,58 @@ static func shape_at(design: CreatureDesign, level: int, balance: CreatureBalanc
 		fit_complexity(shape, design, balance)
 		reach_size(shape, target)
 	fit_length(shape, length_limit(start, target, balance))
+	fit_tentacles(shape, tentacle_limit(start, target, balance))
 	return shape
+
+
+## 看得到的身體：撞到別人的身體會死，別人看不到你的身體就會撞上去（看不到的牆）。直接改 shape，
+## 回傳調了哪些（一項一句話；工坊顯示用）。單人、多人都一樣
+static func make_visible(shape: CreatureDesign, balance: CreatureBalance) -> PackedStringArray:
+	var notes := PackedStringArray()
+	var body: BodyDesign = shape.body
+	if body == null:
+		return notes
+	# 不畫身體又沒有每一節的圖：只剩頭，身體看不到
+	if not body.draw_body and body.segment_image == "":
+		body.draw_body = true
+		notes.append("沒有每一節的圖，所以還是會畫身體")
+	# 太透明：每個顏色的不透明度至少 min_body_alpha
+	if body.body_gradient != null:
+		var colors: PackedColorArray = body.body_gradient.colors
+		var lowest: float = 1.0
+		for i: int in colors.size():
+			lowest = minf(lowest, colors[i].a)
+			colors[i].a = maxf(colors[i].a, balance.min_body_alpha)
+		if lowest < balance.min_body_alpha - 0.001:
+			body.body_gradient = body.body_gradient.duplicate() as Gradient  # 複製一份再改，不動到設計檔的漸層
+			body.body_gradient.colors = colors
+			notes.append("身體太透明：不透明度 %d%% → %d%%" % [roundi(lowest * 100.0), roundi(balance.min_body_alpha * 100.0)])
+	# 太細：平均寬度至少 min_body_width，加粗、間距縮短同樣的倍數（體型不變）
+	var width: float = body_size(body) / maxf(2.0 * body.spacing * body.segment_count, 0.001)
+	if width < balance.min_body_width and width > 0.0:
+		var factor: float = balance.min_body_width / width
+		body.thickness *= factor
+		body.spacing /= factor
+		notes.append("身體太細：平均寬 %.1f → %.1f（間距跟著變短，體型不變）" % [width, balance.min_body_width])
+	return notes
+
+
+## 設計檔在遊戲裡會被調成看得到的哪些地方（不會改到 design）。工坊顯示用
+static func visibility_notes(design: CreatureDesign, balance: CreatureBalance) -> PackedStringArray:
+	if design == null:
+		return PackedStringArray()
+	return make_visible(CreatureDesign.from_data(design.to_dict()), balance)
+
+
+## 觸手長度上限：一開始 max_start_tentacle，跟著體型慢慢放寬（像整隻放大一樣），最長到 max_tentacle_length
+static func tentacle_limit(start: float, target: float, balance: CreatureBalance) -> float:
+	return minf(balance.max_start_tentacle * sqrt(target / maxf(start, 1.0)), maxf(balance.max_tentacle_length, balance.max_start_tentacle))
+
+
+## 觸手太長：剪到上限（粗細不變）
+static func fit_tentacles(shape: CreatureDesign, max_length: float) -> void:
+	for tentacle: TentacleDesign in shape.tentacles:
+		tentacle.length = minf(tentacle.length, max_length)
 
 
 ## 身體長度上限：一開始 max_start_length，跟著體型慢慢放寬（像整隻放大一樣），最長到 max_body_length。

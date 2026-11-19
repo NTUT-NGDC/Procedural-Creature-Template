@@ -1,8 +1,9 @@
 extends Node
 ## 平衡的自動測試（11/19 社課工坊看到的問題）：
-## 1. 公式的上限（單人也有效）：身體長度、觸手實際抓得到的範圍、游動推進力、成長曲線、死掉掉多少飼料
+## 1. 公式的上限（單人也有效）：身體長度、觸手長度、觸手實際抓得到的範圍、游動推進力、成長曲線、死掉掉多少飼料；
+##    看得到的身體（太透明、不畫身體、太細）
 ## 2. 平衡檢查（BalanceCheck，多人時主機自動調整）：範例生物都不用調；
-##    間距太稀、身體太透明、不畫身體、會抓食物的觸手太多，該調的會調、調完再檢查沒問題；
+##    間距太稀、會抓食物的觸手太多，該調的會調、調完再檢查沒問題；
 ##    check() 不會改到原本的設計檔；壞掉、不完整的資料不會當掉
 ## 3. 對戰封包：主機調整封包裡的設計檔，沒問題的不動
 ##
@@ -24,7 +25,8 @@ func _ready() -> void:
 	_test_dropped_food()
 	_test_examples_pass()
 	_test_spacing()
-	_test_alpha()
+	_test_visible()
+	_test_tentacle_length()
 	_test_grab_tentacles()
 	_test_check_is_pure()
 	_test_broken_data()
@@ -95,7 +97,7 @@ func _test_grab_reach() -> void:
 	var many: CreatureDesign = _example("octopus")
 	var few: CreatureDesign = _example("octopus")
 	few.tentacles.resize(1)
-	few.tentacles[0].side = CreaturePart.Side.MIDDLE
+	few.tentacles[0].side = CreaturePart.Side.CENTER
 	_expect(CreatureStats.compute(many, _balance).base_cost > CreatureStats.compute(few, _balance).base_cost, "會抓食物的觸手越多條，升級越貴")
 
 
@@ -165,29 +167,65 @@ func _test_spacing() -> void:
 	_expect(edge.body.spacing >= 4.0 and BalanceCheck.check(_reload(edge), _balance).is_empty(), "很細的身體：間距不會小於 4，調完沒問題（間距 %.0f、粗細 %.0f）" % [edge.body.spacing, edge.body.thickness])
 
 
-func _test_alpha() -> void:
-	print("--- 身體太透明 ---")
+func _test_visible() -> void:
+	print("--- 看得到的身體（單人也有效）---")
 	var design: CreatureDesign = _example("dragon")
 	var colors: PackedColorArray = design.body.body_gradient.colors
 	for i: int in colors.size():
 		colors[i].a = 0.05
 	design.body.body_gradient.colors = colors
-	var notes: PackedStringArray = BalanceCheck.fix(design, _balance)
+	var shape: CreatureDesign = CreatureGrowth.shape_at(design, 0, _balance)
 	var lowest: float = 1.0
-	for color: Color in design.body.body_gradient.colors:
+	for color: Color in shape.body.body_gradient.colors:
 		lowest = minf(lowest, color.a)
-	_expect(notes.size() == 1 and lowest >= _balance.min_body_alpha - 0.001, "不透明度調到至少 %.0f%%（%.0f%%）" % [_balance.min_body_alpha * 100.0, lowest * 100.0])
-	_expect(BalanceCheck.check(_reload(design), _balance).is_empty(), "調完再檢查沒問題")
-	var sea_angel: CreatureDesign = _example("sea_angel")
-	_expect(BalanceCheck.check(sea_angel, _balance).is_empty(), "海天使（有一點透明）不用調")
+	_expect(lowest >= _balance.min_body_alpha - 0.001, "太透明：遊戲裡的不透明度至少 %.0f%%（%.0f%%）" % [_balance.min_body_alpha * 100.0, lowest * 100.0])
+	_expect(is_equal_approx(design.body.body_gradient.colors[0].a, 0.05), "設計檔本身沒被改到")
+	_expect(CreatureGrowth.visibility_notes(design, _balance).size() == 1, "工坊會顯示 1 項調整")
 	var hidden: CreatureDesign = _example("snake")
 	hidden.body.draw_body = false
-	BalanceCheck.fix(hidden, _balance)
-	_expect(hidden.body.draw_body, "不畫身體又沒有每一節的圖：改成畫身體")
+	_expect(CreatureGrowth.shape_at(hidden, 0, _balance).body.draw_body, "不畫身體又沒有每一節的圖：遊戲裡還是畫身體")
 	var beads: CreatureDesign = _example("snake")
 	beads.body.draw_body = false
 	beads.body.segment_image = "bead.png"
-	_expect(BalanceCheck.check(beads, _balance).is_empty(), "有每一節的圖（一串珠子）：不用畫身體")
+	_expect(CreatureGrowth.visibility_notes(beads, _balance).is_empty(), "有每一節的圖（一串珠子）：不用畫身體")
+	var thin: CreatureDesign = _example("snake")
+	thin.body.thickness = 2.0
+	var thin_shape: CreatureDesign = CreatureGrowth.shape_at(thin, 0, _balance)
+	var body: BodyDesign = thin_shape.body
+	var width: float = CreatureGrowth.body_size(body) / (2.0 * body.spacing * body.segment_count)
+	_expect(width >= _balance.min_body_width - 0.01, "太細：平均寬至少 %.1f（%.1f）" % [_balance.min_body_width, width])
+	var expected: float = clampf(CreatureGrowth.body_size(thin.body), _balance.min_start_size, _balance.max_start_size)
+	_expect(absf(CreatureGrowth.body_size(body) - expected) < expected * 0.02, "加粗之後體型不變（%.0f ≈ %.0f）" % [CreatureGrowth.body_size(body), expected])
+	for example: String in EXAMPLES:
+		var notes: PackedStringArray = CreatureGrowth.visibility_notes(_example(example), _balance)
+		_expect(notes.is_empty(), "%s 不用調：%s" % [example, "沒問題" if notes.is_empty() else str(notes)])
+	CreatureGrowth.visibility_notes(null, _balance)
+	CreatureGrowth.visibility_notes(CreatureDesign.from_data({"body": {"thickness": -5, "body_gradient": "亂寫"}}), _balance)
+	_expect(true, "壞掉的資料不會當掉")
+
+
+func _test_tentacle_length() -> void:
+	print("--- 觸手長度上限 ---")
+	var design: CreatureDesign = _example("octopus")
+	design.body.segment_count = 2
+	design.body.thickness = 8.0
+	for tentacle: TentacleDesign in design.tentacles:
+		tentacle.length = 400.0
+	for mode: int in 3:
+		design.growth_mode = mode
+		var start: float = _longest(CreatureGrowth.shape_at(design, 0, _balance))
+		var grown: float = _longest(CreatureGrowth.shape_at(design, 50, _balance))
+		_expect(start <= _balance.max_start_tentacle + 0.5 and grown <= _balance.max_tentacle_length + 0.5,
+			"長大方式 %d：小身體＋長觸手，0 級 %.0f、50 級 %.0f（最長 %.0f／%.0f）" % [mode, start, grown, _balance.max_start_tentacle, _balance.max_tentacle_length])
+	var jelly: CreatureDesign = _example("jellyfish")
+	_expect(_longest(CreatureGrowth.shape_at(jelly, 20, _balance)) > _longest(CreatureGrowth.shape_at(jelly, 0, _balance)), "範例的觸手還是會跟著長大")
+
+
+func _longest(shape: CreatureDesign) -> float:
+	var longest: float = 0.0
+	for tentacle: TentacleDesign in shape.tentacles:
+		longest = maxf(longest, tentacle.length)
+	return longest
 
 
 func _test_grab_tentacles() -> void:
@@ -212,7 +250,7 @@ func _test_check_is_pure() -> void:
 	design.body.draw_body = false
 	var before: Dictionary = design.to_dict()
 	var notes: PackedStringArray = BalanceCheck.check(design, _balance)
-	_expect(notes.size() == 2 and design.to_dict() == before, "檢查出 %d 項，設計檔沒變" % notes.size())
+	_expect(notes.size() == 1 and design.to_dict() == before, "檢查出 %d 項，設計檔沒變" % notes.size())
 
 
 func _test_broken_data() -> void:
@@ -224,6 +262,7 @@ func _test_broken_data() -> void:
 	var no_gradient: CreatureDesign = _example("snake")
 	no_gradient.body.body_gradient = null
 	BalanceCheck.fix(no_gradient, _balance)
+	CreatureGrowth.shape_at(no_gradient, 3, _balance)
 	_expect(true, "沒有漸層")
 	var weird: CreatureDesign = CreatureDesign.from_data({"body": {"spacing": "很多", "thickness": -5}, "tentacles": [{"behavior": 99}, "亂寫"]})
 	BalanceCheck.fix(weird, _balance)
